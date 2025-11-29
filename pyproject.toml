@@ -5,8 +5,24 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12.3"
 dependencies = [
+    "gymnasium>=1.2.2",
+    "hydra-core>=1.3.2",
+    "pytest>=9.0.1",
+    "pytest-cov>=7.0.0",
     "smacv2",
+    "tensordict>=0.10.0",
+    "torchrl[utils]==0.10.0",
 ]
 
 [tool.uv.sources]
 smacv2 = { git = "https://github.com/oxwhirl/smacv2.git" }
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "I",  # isort compatible import sorting
+    "B",  # bugbear
+    "UP", # pyupgrade
+    "G",  # logging format issues
+]
