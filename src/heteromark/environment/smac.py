@@ -9,15 +9,12 @@ from absl import logging
 import time
 
 from smacv2.env.starcraft2.wrapper import StarCraftCapabilityEnvWrapper
-from smacv2.env.pettingzoo import smac_parallel_env as ParallelPzEnv
 
 
 
 
-def create_parallel_pz_env(specs):
-    basic_env = create_dummy_env()
-    env = ParallelPzEnv(basic_env, specs["max_cycles"])
-    return env
+
+
 
 def create_env(specs):
 
@@ -58,6 +55,16 @@ def create_dummy_env():
     specs = {
         "distributed_config": distribution_config,
         "map_name": "10gen_terran",
+        
     }
 
     return create_env(specs)
+
+
+
+if __name__ == "__main__":
+    env = create_dummy_parallel_pz_env()
+    obs = env.reset()
+    print("Initial observation:", obs)
+
+

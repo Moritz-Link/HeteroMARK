@@ -1,3 +1,5 @@
+
+
 def train_mappo_inside(
     cfg: DictConfig,
     logger: TrainingLogger,
@@ -25,8 +27,6 @@ def train_mappo_inside(
     rollout_frames = 0
 
     for i, tensordict_data in enumerate(collector):
-        if not isinstance(collector, AECCollector):
-            tensordict_data = transform_td(tensordict_data, env)
 
         epoch_frames = frames
         number_frames = tensordict_data.numel()
