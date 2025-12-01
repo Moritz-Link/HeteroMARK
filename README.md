@@ -1,0 +1,123 @@
+# HeteroMARK
+
+HeteroMARK is a research-friendly repository for training heterogeneous multi-agent reinforcement learning (MARL) systems with PyTorch. The goal is to provide a clean and extensible set of training algorithms, losses, and environment adapters so you can train agents that differ in observation spaces, action spaces, and capabilities—yet still learn to coordinate.
+
+## Why heterogeneous MARL?
+
+In many real-world scenarios, agents are not identical. Think drones with different sensors, robots with different effectors, or software agents with different roles. Heterogeneous MARL focuses on these settings: coordinating agents with differing policies, networks, and interfaces.
+
+HeteroMARK aims to:
+- Implement training algorithms tailored to heterogeneous agents (starting with HAPPO-like methods)
+- Provide loss functions and utilities that handle per-agent differences gracefully
+- Offer environment wrappers/adapters so common MARL environments can be used out of the box
+- Keep the code modular and PyTorch-first for easy research and extension
+
+## Features
+
+- PyTorch-based training loops for heterogeneous agents
+- HAPPO-style algorithm and loss components
+- Environment adapters for PettingZoo AEC and SMAC-like environments
+- Configuration-driven runs for reproducibility
+- Minimal, readable code structure for hacking and research
+
+## Repository structure
+
+```
+main.py                    # Entry point for launching training
+pyproject.toml             # Python project configuration and dependencies
+README.md                  # This document
+src/
+	algorithm/
+		happo_algorithm.py     # HAPPO-style training algorithm implementation
+	configs/                 # (Optional) Config files for experiments/runs
+	environment/
+		__init__.py
+		pz_aec_env.py          # PettingZoo AEC environment adapter
+		smac.py                # SMAC environment adapter
+	loss/
+		happo_loss.py          # Loss functions supporting heterogeneous agents
+```
+
+## Installation
+
+Prerequisites:
+- Python 3.10+
+- Windows, macOS, or Linux
+
+Steps:
+
+```powershell
+# Clone the repository
+git clone https://github.com/Moritz-Link/HeteroMARK.git
+cd HeteroMARK
+
+# (Recommended) create and activate a virtual environment
+python -m venv .venv; .\.venv\Scripts\Activate.ps1
+
+# Install dependencies
+pip install -e .
+```
+
+If you prefer using `pip` without editable mode:
+
+```powershell
+pip install .
+```
+
+## Quick start
+
+The default entrypoint is `main.py`. A minimal training run might look like:
+
+```powershell
+python .\main.py
+```
+
+Depending on your environment setup, you may want to define a specific environment and agent configuration. See the `src/environment` adapters (`pz_aec_env.py`, `smac.py`) and algorithm/loss files for guidance.
+
+### Conceptual flow
+
+1. Initialize environment via an adapter (e.g., PettingZoo AEC or SMAC)
+2. Create heterogeneous agent policies (potentially with different network architectures)
+3. Run the training algorithm (e.g., HAPPO) that coordinates updates across agents
+4. Compute per-agent losses using `happo_loss.py`
+5. Log metrics and save checkpoints
+
+## Configuration
+
+- Use the `src/configs/` directory to store experiment JSON/YAML/TOML configs (naming is flexible).
+- Typical config fields:
+	- Environment: name, parameters, wrappers
+	- Agents: count, roles, network architectures, action spaces
+	- Training: learning rates, batch sizes, rollout lengths, entropy/coefficient settings
+	- Logging/Checkpointing: frequency, directories
+
+## Extending the repo
+
+Add a new algorithm:
+- Create `src/algorithm/<your_algorithm>.py`
+- Define a training loop class or function interface that accepts heterogeneous agent policies and environment adapters
+- Reuse shared utilities and loss patterns from `happo_loss.py` when possible
+
+Add a new environment adapter:
+- Create `src/environment/<your_env>.py`
+- Normalize agent interfaces (obs, action, resets) so algorithms can use them uniformly
+
+Add new losses:
+- Create `src/loss/<your_loss>.py`
+- Maintain per-agent loss computation with clear interfaces for heterogeneous settings
+
+## Roadmap
+
+- More heterogeneous MARL algorithms beyond HAPPO (e.g., HATRPO, heterogeneous PPO variants)
+- Better environment coverage and example scripts
+- Plug-and-play policy architectures and role-based templates
+- Evaluation suites and reproducibility tooling
+
+## Citing
+
+If HeteroMARK helps your research, please consider citing the repository. A BibTeX entry will be added once a preprint or paper is available.
+
+## License
+
+This project is open-source. See the repository's license file (to be added) for details. Until then, consider it under an academic/research-friendly license; feel free to open an issue to discuss licensing needs.
+
