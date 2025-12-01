@@ -3,7 +3,7 @@ from typing import Any, Dict
 import torch
 from torchrl.objectives import ClipPPOLoss
 from torchrl.objectives.value import GAE
-from src.loss.happo_loss import ClipHAPPOLoss
+from heteromark.loss.happo_loss import ClipHAPPOLoss
 
 
 class BaseLossFactory(ABC):

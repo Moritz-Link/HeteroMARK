@@ -93,7 +93,7 @@ class EnvironmentFactory(BaseEnvironmentFactory):
         # Placeholder for custom environment creation
         raise NotImplementedError("Custom environment creation not yet implemented")
 
-    def _apply_transforms(self, env: Any, transforms: list) -> TransformedEnv:
+    def _apply_transforms(self, env: Any) -> TransformedEnv:
         """Apply transformations to environment.
 
         Args:
@@ -105,6 +105,9 @@ class EnvironmentFactory(BaseEnvironmentFactory):
         """
         # This would apply various TorchRL transforms
         # For now, return the environment as-is
+        env = TransformedEnv(
+            env
+        )
         return env
 
 
@@ -124,4 +127,8 @@ if __name__ == "__main__":
 
     env = env_factory.create(config)
     print(" === Environment created:", env, "===")
+    print(" === Start: Apply Transforms === ")
+    env = env_factory._apply_transforms(env)
+
+    print(" === Finished Applying Transforms === ")
 

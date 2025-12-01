@@ -163,7 +163,7 @@ class smac_parallel_env(ParallelEnv):
 
 
 def create_dummy_parallel_pz_env():
-    print("Creating dummy parallel pz env")
+    print("=== Creating dummy parallel pz env ===")
     basic_env = create_dummy_env()
     specs = {}
     specs["max_cycles"] = 500
