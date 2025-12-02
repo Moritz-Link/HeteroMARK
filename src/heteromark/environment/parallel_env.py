@@ -1,6 +1,7 @@
 
-from gym.utils import seeding
-from gym import spaces
+
+import gymnasium as gym
+from gymnasium import spaces
 from pettingzoo.utils.env import ParallelEnv
 from heteromark.environment.smac import create_dummy_env
 import numpy as np
@@ -103,7 +104,7 @@ class smac_parallel_env(ParallelEnv):
 
     def seed(self, seed=None):
         if seed is None:
-            self.env._seed = seeding.create_seed(seed, max_bytes=4)
+            self.env._seed =42
         else:
             self.env._seed = seed
         self.env.full_restart()
@@ -114,7 +115,7 @@ class smac_parallel_env(ParallelEnv):
     def close(self):
         self.env.close()
 
-    def reset(self):
+    def reset(self,seed: int | None = None):
         self.env._episode_count = 1
         self.env.reset()
 
