@@ -122,7 +122,8 @@ class smac_parallel_env(ParallelEnv):
         self.agents = self.possible_agents[:]
         self.frames = 0
         self.all_dones = {agent: False for agent in self.possible_agents}
-        return self._observe_all()
+        all_infos = {agent: {} for agent in self.agents}
+        return self._observe_all(), all_infos
 
     def get_agent_smac_id(self, agent):
         return self.agents_id[agent]
@@ -145,6 +146,7 @@ class smac_parallel_env(ParallelEnv):
             all_obs.append({"observation": obs, "action_mask": action_mask})
         return {agent: obs for agent, obs in zip(self.agents, all_obs)}
 
+    
     def _all_dones(self, step_done=False):
         dones = [True] * len(self.agents)
         if not step_done:
