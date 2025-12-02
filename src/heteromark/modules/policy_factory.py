@@ -78,9 +78,10 @@ class PolicyFactory(BasePolicyFactory):
             # Extract observation and action specs for this agent group
             obs_spec = self._get_observation_spec(env, agent_group)
             action_spec = self._get_action_spec(env, agent_group)
-
-            obs_dim = obs_spec.shape[-1] if hasattr(obs_spec, "shape") else config.get("obs_dim", 64)
-            action_dim = action_spec.shape[-1] if hasattr(action_spec, "shape") else config.get("action_dim", 4)
+            obs_dim = obs_spec[agent_group]["observation"]["observation"].shape[-1]
+            action_dim = action_spec[agent_group]["action"].shape[-1]
+            #obs_dim = obs_spec.shape[-1] if hasattr(obs_spec, "shape") else config.get("obs_dim", 64)
+            #action_dim = action_spec.shape[-1] if hasattr(action_spec, "shape") else config.get("action_dim", 4)
 
             # Create actor network
             actor_net = MLP(
@@ -184,3 +185,4 @@ if __name__ == "__main__":
 
     print("Policy Modules:", policy_modules)
     print("Value Modules:", value_modules)
+    print(" === Policy and Value modules created ===")
