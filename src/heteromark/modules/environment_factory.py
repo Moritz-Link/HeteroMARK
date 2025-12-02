@@ -5,6 +5,17 @@ from torchrl.envs import ParallelEnv, TransformedEnv
 
 from heteromark.environment import create_env, create_dummy_env,create_dummy_parallel_pz_env
 
+from torchrl.envs import (
+    Compose,
+    StepCounter,
+)
+from torchrl.envs.libs.pettingzoo import PettingZooWrapper
+
+
+STANDARD_ENV_TRANSFORMS = Compose(
+    StepCounter()
+)
+
 
 class BaseEnvironmentFactory(ABC):
     """Abstract base class for environment factories."""
@@ -60,6 +71,11 @@ class EnvironmentFactory(BaseEnvironmentFactory):
         """
         if config.get("use_dummy", False):
             env = create_dummy_parallel_pz_env()
+            use_mask = False
+            env = PettingZooWrapper(
+                env=env, return_state=False, group_map=None, use_mask=use_mask
+            )
+            env = self._apply_transforms(env)
             return env
         else:
             specs = {
@@ -106,7 +122,8 @@ class EnvironmentFactory(BaseEnvironmentFactory):
         # This would apply various TorchRL transforms
         # For now, return the environment as-is
         env = TransformedEnv(
-            env
+            env,
+            STANDARD_ENV_TRANSFORMS
         )
         return env
 
@@ -127,8 +144,8 @@ if __name__ == "__main__":
 
     env = env_factory.create(config)
     print(" === Environment created:", env, "===")
-    print(" === Start: Apply Transforms === ")
-    env = env_factory._apply_transforms(env)
+    # print(" === Start: Apply Transforms === ")
+    # env = env_factory._apply_transforms(env)
 
-    print(" === Finished Applying Transforms === ")
+    # print(" === Finished Applying Transforms === ")
 

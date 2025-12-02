@@ -17,7 +17,7 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from src.modules import (
+from heteromark.modules import (
     EnvironmentFactory,
     PolicyFactory,
     LossFactory,
@@ -25,7 +25,7 @@ from src.modules import (
     CollectorFactory,
     ReplayBufferFactory,
 )
-from src.algorithm.happo_algorithm import HappoAlgorithm
+from heteromark.algorithm.happo_algorithm import HappoAlgorithm
 
 
 class ComponentFactory:

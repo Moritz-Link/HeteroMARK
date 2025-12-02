@@ -151,3 +151,36 @@ class PolicyFactory(BasePolicyFactory):
                 return action_spec[agent_group]
             return action_spec
         return None
+
+
+
+
+if __name__ == "__main__":
+    # Example usage
+    from heteromark.modules.environment_factory import EnvironmentFactory
+
+    env_factory = EnvironmentFactory(env_type="smac")
+    config = {
+        "map_name": "10gen_terran",
+        "distributed_config": {
+            "n_units": 5,
+            "n_enemies": 5,
+            # Additional configuration...
+        },
+        "use_dummy": True,
+        "num_parallel_envs": 2,
+        "transforms": [],
+    }
+
+    env = env_factory.create(config)
+
+    policy_factory = PolicyFactory(policy_type="mlp")
+    config = {
+        "hidden_sizes": [128, 128],
+        "activation": "ReLU",
+        "device": "cpu",
+    }
+    policy_modules, value_modules = policy_factory.create(config, env)
+
+    print("Policy Modules:", policy_modules)
+    print("Value Modules:", value_modules)

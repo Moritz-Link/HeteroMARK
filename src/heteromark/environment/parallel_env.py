@@ -14,6 +14,7 @@ class smac_parallel_env(ParallelEnv):
         self.reset_flag = 0
         self.agents, self.action_spaces = self._init_agents()
         self.possible_agents = self.agents[:]
+        self.device = "cpu"
 
         observation_size = env.get_obs_size()
         self.observation_spaces = {
