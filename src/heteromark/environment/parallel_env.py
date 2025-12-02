@@ -4,7 +4,27 @@ from gym import spaces
 from pettingzoo.utils.env import ParallelEnv
 from heteromark.environment.smac import create_dummy_env
 import numpy as np
+from torchrl.envs.libs.gym import (
+    _gym_to_torchrl_spec_transform, 
+    register_gym_spec_conversion,
+    convert_box_spec,
+    convert_dict_spec,
+    )
+from torchrl.data.tensor_specs import Categorical
 
+
+# Register conversion for gym.spaces.Discrete
+@register_gym_spec_conversion(spaces.Discrete)
+def _discrete_converter(space, **kwargs):
+    return Categorical(n=space.n, shape=())
+
+@register_gym_spec_conversion(spaces.Dict)
+def _dict_converter(space, **kwargs):
+    return convert_dict_spec(space, **kwargs)
+
+@register_gym_spec_conversion(spaces.Box)
+def _box_converter(space, **kwargs):
+    return convert_box_spec(space, **kwargs)
 
 class smac_parallel_env(ParallelEnv):
     def __init__(self, env, max_cycles):
