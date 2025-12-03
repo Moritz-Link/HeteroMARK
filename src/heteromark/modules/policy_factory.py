@@ -1,13 +1,12 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict
+from typing import Any
+
 import torch
+from tensordict.nn import TensorDictModule
 from torch import nn
-from tensordict.nn import TensorDictModule, ProbabilisticTensorDictSequential
 from torchrl.modules import (
-    ProbabilisticActor,
-    TanhNormal,
-    ValueOperator,
     MLP,
+    ValueOperator,
 )
 
 
@@ -54,7 +53,7 @@ class PolicyFactory(BasePolicyFactory):
         else:
             raise ValueError(f"Unknown policy type: {self.policy_type}")
 
-    def _create_mlp_policy(self, config: dict, env: Any) -> tuple[Dict, Dict]:
+    def _create_mlp_policy(self, config: dict, env: Any) -> tuple[dict, dict]:
         """Create MLP-based policy and value networks.
 
         Args:
@@ -72,7 +71,9 @@ class PolicyFactory(BasePolicyFactory):
         value_modules = {}
 
         # Get agent groups from environment
-        group_map = getattr(env, "group_map", {"default": env.agents if hasattr(env, "agents") else []})
+        group_map = getattr(
+            env, "group_map", {"default": env.agents if hasattr(env, "agents") else []}
+        )
 
         for agent_group in group_map.keys():
             # Extract observation and action specs for this agent group
@@ -80,8 +81,8 @@ class PolicyFactory(BasePolicyFactory):
             action_spec = self._get_action_spec(env, agent_group)
             obs_dim = obs_spec[agent_group]["observation"]["observation"].shape[-1]
             action_dim = action_spec[agent_group]["action"].shape[-1]
-            #obs_dim = obs_spec.shape[-1] if hasattr(obs_spec, "shape") else config.get("obs_dim", 64)
-            #action_dim = action_spec.shape[-1] if hasattr(action_spec, "shape") else config.get("action_dim", 4)
+            # obs_dim = obs_spec.shape[-1] if hasattr(obs_spec, "shape") else config.get("obs_dim", 64)
+            # action_dim = action_spec.shape[-1] if hasattr(action_spec, "shape") else config.get("action_dim", 4)
 
             # Create actor network
             actor_net = MLP(
@@ -154,7 +155,6 @@ class PolicyFactory(BasePolicyFactory):
         return None
 
 
-
 def get_dummy_policy_from_factory(env):
     policy_factory = PolicyFactory(policy_type="mlp")
     config = {
@@ -163,7 +163,10 @@ def get_dummy_policy_from_factory(env):
         "device": "cpu",
     }
     policy_modules, value_modules = policy_factory.create(config, env)
+    print(policy_modules)
     return policy_modules, value_modules
+
+
 if __name__ == "__main__":
     # Example usage
     from heteromark.modules.environment_factory import EnvironmentFactory

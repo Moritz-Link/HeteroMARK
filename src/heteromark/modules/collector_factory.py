@@ -70,6 +70,7 @@ class CollectorFactory(BaseCollectorFactory):
         device = torch.device(config.get("device", "cpu"))
 
         # Create a combined policy module if there are multiple agents
+        # TODO: das passt hier nicht
         if len(policy_modules) > 1:
             # For multi-agent, we need to handle policy execution differently
             # This is a simplified approach - you may need custom logic
@@ -159,4 +160,5 @@ if __name__ == "__main__":
     env = get_dummy_env_from_factory()
     policy_modules, _ = get_dummy_policy_from_factory(env)
     collector_factory = CollectorFactory("sync")
-    collector_factory.create(config=None, env=None, policy_modules=None)
+    config = {}
+    collector_factory.create(config=config, env=None, policy_modules=None)
