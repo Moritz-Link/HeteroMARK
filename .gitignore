@@ -5,3 +5,6 @@ __pycache__/
 
 # pytest cache
 .pytest_cache/
+src/heteromark/environment/__pycache__/parallel_env.cpython-312.pyc
+src/heteromark/environment/__pycache__/__init__.cpython-312.pyc
+src/heteromark/__pycache__/__init__.cpython-312.pyc
