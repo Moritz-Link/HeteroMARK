@@ -128,6 +128,25 @@ class EnvironmentFactory(BaseEnvironmentFactory):
         return env
 
 
+
+def get_dummy_env_from_factory():
+    env_factory = EnvironmentFactory(env_type="smac")
+    config = {
+        "map_name": "10gen_terran",
+        "distributed_config": {
+            "n_units": 5,
+            "n_enemies": 5,
+            # Additional configuration...
+        },
+        "use_dummy": True,
+        "num_parallel_envs": 2,
+        "transforms": [],
+    }
+
+    env = env_factory.create(config)
+
+
+    return env
 if __name__ == "__main__":
     env_factory = EnvironmentFactory(env_type="smac")
     config = {

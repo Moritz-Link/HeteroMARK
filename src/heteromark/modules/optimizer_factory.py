@@ -1,14 +1,13 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict
-import torch
-from torch.optim import Adam, SGD, RMSprop
+
+from torch.optim import SGD, Adam, RMSprop
 
 
 class BaseOptimizerFactory(ABC):
     """Abstract base class for optimizer factories."""
 
     @abstractmethod
-    def create(self, config: dict, loss_modules: Dict) -> Dict:
+    def create(self, config: dict, loss_modules: dict) -> dict:
         """Create and return optimizers.
 
         Args:
@@ -32,7 +31,7 @@ class OptimizerFactory(BaseOptimizerFactory):
         """
         self.optimizer_type = optimizer_type
 
-    def create(self, config: dict, loss_modules: Dict) -> Dict:
+    def create(self, config: dict, loss_modules: dict) -> dict:
         """Create optimizers based on configuration.
 
         Args:
@@ -51,7 +50,7 @@ class OptimizerFactory(BaseOptimizerFactory):
         else:
             raise ValueError(f"Unknown optimizer type: {self.optimizer_type}")
 
-    def _create_adam_optimizers(self, config: dict, loss_modules: Dict) -> Dict:
+    def _create_adam_optimizers(self, config: dict, loss_modules: dict) -> dict:
         """Create Adam optimizers.
 
         Args:
@@ -77,7 +76,7 @@ class OptimizerFactory(BaseOptimizerFactory):
 
         return optimizers
 
-    def _create_sgd_optimizers(self, config: dict, loss_modules: Dict) -> Dict:
+    def _create_sgd_optimizers(self, config: dict, loss_modules: dict) -> dict:
         """Create SGD optimizers.
 
         Args:
@@ -103,7 +102,7 @@ class OptimizerFactory(BaseOptimizerFactory):
 
         return optimizers
 
-    def _create_rmsprop_optimizers(self, config: dict, loss_modules: Dict) -> Dict:
+    def _create_rmsprop_optimizers(self, config: dict, loss_modules: dict) -> dict:
         """Create RMSprop optimizers.
 
         Args:
@@ -130,3 +129,22 @@ class OptimizerFactory(BaseOptimizerFactory):
             optimizers[agent_group] = optimizer
 
         return optimizers
+
+
+def get_dummy_loss_from_factory(loss_modules):
+    optmizer_factory = OptimizerFactory("adam")
+    optimizer = optmizer_factory.create(loss_modules=loss_modules, config=None)
+    return optimizer
+
+
+if __name__ == "__main__":
+    from heteromark.modules.environment_factory import get_dummy_env_from_factory
+    from heteromark.modules.loss_factory import get_dummy_loss_modules_from_factory
+    from heteromark.modules.policy_factory import get_dummy_policy_from_factory
+
+    env = get_dummy_env_from_factory()
+    policy_modules, value_modules = get_dummy_policy_from_factory(env)
+    loss_modules = get_dummy_loss_modules_from_factory(policy_modules, value_modules)
+
+    optmizer_factory = OptimizerFactory("adam")
+    optimizer = optmizer_factory.create(loss_modules=loss_modules, config=None)

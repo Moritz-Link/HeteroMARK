@@ -1,14 +1,13 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict
-import torch
-from torchrl.data import ReplayBuffer, LazyTensorStorage, LazyMemmapStorage
+
+from torchrl.data import LazyMemmapStorage, LazyTensorStorage, ReplayBuffer
 
 
 class BaseReplayBufferFactory(ABC):
     """Abstract base class for replay buffer factories."""
 
     @abstractmethod
-    def create(self, config: dict) -> Dict:
+    def create(self, config: dict) -> dict:
         """Create and return replay buffers.
 
         Args:
@@ -31,7 +30,7 @@ class ReplayBufferFactory(BaseReplayBufferFactory):
         """
         self.buffer_type = buffer_type
 
-    def create(self, config: dict) -> Dict:
+    def create(self, config: dict) -> dict:
         """Create replay buffers based on configuration.
 
         Args:
@@ -47,7 +46,7 @@ class ReplayBufferFactory(BaseReplayBufferFactory):
         else:
             raise ValueError(f"Unknown buffer type: {self.buffer_type}")
 
-    def _create_tensor_buffers(self, config: dict) -> Dict:
+    def _create_tensor_buffers(self, config: dict) -> dict:
         """Create tensor-based replay buffers.
 
         Args:
@@ -71,7 +70,7 @@ class ReplayBufferFactory(BaseReplayBufferFactory):
 
         return buffers
 
-    def _create_memmap_buffers(self, config: dict) -> Dict:
+    def _create_memmap_buffers(self, config: dict) -> dict:
         """Create memory-mapped replay buffers for large datasets.
 
         Args:
@@ -98,3 +97,14 @@ class ReplayBufferFactory(BaseReplayBufferFactory):
             buffers[agent_group] = buffer
 
         return buffers
+
+
+def get_dummy_replaybuffer_from_factory(loss_modules):
+    rbuffer_factory = ReplayBufferFactory("tensor")
+    rbuffer = rbuffer_factory.create()
+    return rbuffer
+
+
+if __name__ == "__main__":
+    rbuffer_factory = ReplayBufferFactory("tensor")
+    rbuffer = rbuffer_factory.create()

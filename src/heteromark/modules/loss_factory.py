@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict
-import torch
+
 from torchrl.objectives import ClipPPOLoss
 from torchrl.objectives.value import GAE
+
 from heteromark.loss.happo_loss import ClipHAPPOLoss
 
 
@@ -10,7 +10,9 @@ class BaseLossFactory(ABC):
     """Abstract base class for loss factories."""
 
     @abstractmethod
-    def create(self, config: dict, policy_modules: Dict, value_modules: Dict) -> tuple[Dict, Dict]:
+    def create(
+        self, config: dict, policy_modules: dict, value_modules: dict
+    ) -> tuple[dict, dict]:
         """Create and return loss modules and advantage estimators.
 
         Args:
@@ -35,7 +37,9 @@ class LossFactory(BaseLossFactory):
         """
         self.loss_type = loss_type
 
-    def create(self, config: dict, policy_modules: Dict, value_modules: Dict) -> tuple[Dict, Dict]:
+    def create(
+        self, config: dict, policy_modules: dict, value_modules: dict
+    ) -> tuple[dict, dict]:
         """Create loss modules based on configuration.
 
         Args:
@@ -54,8 +58,8 @@ class LossFactory(BaseLossFactory):
             raise ValueError(f"Unknown loss type: {self.loss_type}")
 
     def _create_happo_loss(
-        self, config: dict, policy_modules: Dict, value_modules: Dict
-    ) -> tuple[Dict, Dict]:
+        self, config: dict, policy_modules: dict, value_modules: dict
+    ) -> tuple[dict, dict]:
         """Create HAPPO loss modules.
 
         Args:
@@ -114,8 +118,8 @@ class LossFactory(BaseLossFactory):
         return loss_modules, advantage_modules
 
     def _create_ppo_loss(
-        self, config: dict, policy_modules: Dict, value_modules: Dict
-    ) -> tuple[Dict, Dict]:
+        self, config: dict, policy_modules: dict, value_modules: dict
+    ) -> tuple[dict, dict]:
         """Create PPO loss modules.
 
         Args:
@@ -138,6 +142,7 @@ class LossFactory(BaseLossFactory):
 
         for agent_group in policy_modules.keys():
             # Create GAE advantage estimator
+            # TODO: ADvantage Module immer raus -> Nur CTDE
             advantage_module = GAE(
                 gamma=gamma,
                 lmbda=lmbda,
@@ -171,3 +176,28 @@ class LossFactory(BaseLossFactory):
             advantage_modules[agent_group] = advantage_module
 
         return loss_modules, advantage_modules
+
+
+# class enum LossTypes:
+#     "ppo": Clip
+
+
+def get_dummy_loss_modules_from_factory(policy_modules, value_modules):
+    loss_factory = LossFactory("ppo")
+    loss_modules = loss_factory.create(
+        policy_modules=policy_modules, value_modules=value_modules
+    )
+    return loss_modules
+
+
+if __name__ == "__main__":
+    from heteromark.modules.environment_factory import get_dummy_env_from_factory
+    from heteromark.modules.policy_factory import get_dummy_policy_from_factory
+
+    env = get_dummy_env_from_factory()
+    policy_modules, value_modules = get_dummy_policy_from_factory(env)
+
+    loss_factory = LossFactory("ppo")
+    loss_modules = loss_factory.create(
+        policy_modules=policy_modules, value_modules=value_modules
+    )

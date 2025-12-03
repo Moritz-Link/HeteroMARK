@@ -155,7 +155,15 @@ class PolicyFactory(BasePolicyFactory):
 
 
 
-
+def get_dummy_policy_from_factory(env):
+    policy_factory = PolicyFactory(policy_type="mlp")
+    config = {
+        "hidden_sizes": [128, 128],
+        "activation": "ReLU",
+        "device": "cpu",
+    }
+    policy_modules, value_modules = policy_factory.create(config, env)
+    return policy_modules, value_modules
 if __name__ == "__main__":
     # Example usage
     from heteromark.modules.environment_factory import EnvironmentFactory

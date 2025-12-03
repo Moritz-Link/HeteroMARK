@@ -1,15 +1,15 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict
+from typing import Any
+
 import torch
-from torchrl.collectors import SyncDataCollector, MultiSyncDataCollector
-from torchrl.envs import ParallelEnv
+from torchrl.collectors import MultiSyncDataCollector, SyncDataCollector
 
 
 class BaseCollectorFactory(ABC):
     """Abstract base class for collector factories."""
 
     @abstractmethod
-    def create(self, config: dict, env: Any, policy_modules: Dict) -> Any:
+    def create(self, config: dict, env: Any, policy_modules: dict) -> Any:
         """Create and return a data collector.
 
         Args:
@@ -34,7 +34,7 @@ class CollectorFactory(BaseCollectorFactory):
         """
         self.collector_type = collector_type
 
-    def create(self, config: dict, env: Any, policy_modules: Dict) -> Any:
+    def create(self, config: dict, env: Any, policy_modules: dict) -> Any:
         """Create collector based on configuration.
 
         Args:
@@ -52,7 +52,9 @@ class CollectorFactory(BaseCollectorFactory):
         else:
             raise ValueError(f"Unknown collector type: {self.collector_type}")
 
-    def _create_sync_collector(self, config: dict, env: Any, policy_modules: Dict) -> SyncDataCollector:
+    def _create_sync_collector(
+        self, config: dict, env: Any, policy_modules: dict
+    ) -> SyncDataCollector:
         """Create synchronous data collector.
 
         Args:
@@ -87,7 +89,7 @@ class CollectorFactory(BaseCollectorFactory):
         return collector
 
     def _create_multi_sync_collector(
-        self, config: dict, env: Any, policy_modules: Dict
+        self, config: dict, env: Any, policy_modules: dict
     ) -> MultiSyncDataCollector:
         """Create multi-process synchronous data collector.
 
@@ -120,7 +122,7 @@ class CollectorFactory(BaseCollectorFactory):
 
         return collector
 
-    def _create_multi_agent_policy(self, policy_modules: Dict) -> Any:
+    def _create_multi_agent_policy(self, policy_modules: dict) -> Any:
         """Create a combined policy for multi-agent scenarios.
 
         Args:
@@ -142,3 +144,19 @@ class CollectorFactory(BaseCollectorFactory):
         # For true multi-agent support, you'd need custom logic here
         # This is a placeholder that would need to be adapted to your specific use case
         return TensorDictSequential(*modules)
+
+
+def get_dummy_collector(env, policy_modules):
+    config = {}
+    collector_factory = CollectorFactory("sync")
+    collector_factory.create(config=None, env=env, policy_modules=policy_modules)
+
+
+if __name__ == "__main__":
+    from heteromark.modules.environment_factory import get_dummy_env_from_factory
+    from heteromark.modules.policy_factory import get_dummy_policy_from_factory
+
+    env = get_dummy_env_from_factory()
+    policy_modules, _ = get_dummy_policy_from_factory(env)
+    collector_factory = CollectorFactory("sync")
+    collector_factory.create(config=None, env=None, policy_modules=None)
