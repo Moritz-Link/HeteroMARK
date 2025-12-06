@@ -30,7 +30,7 @@ class ReplayBufferFactory(BaseReplayBufferFactory):
         """
         self.buffer_type = buffer_type
 
-    def create(self, config: dict) -> dict:
+    def create(self, config: dict, env) -> dict:
         """Create replay buffers based on configuration.
 
         Args:
@@ -40,13 +40,13 @@ class ReplayBufferFactory(BaseReplayBufferFactory):
             Dictionary of replay buffers by agent group
         """
         if self.buffer_type == "tensor":
-            return self._create_tensor_buffers(config)
+            return self._create_tensor_buffers(config, env)
         elif self.buffer_type == "memmap":
-            return self._create_memmap_buffers(config)
+            return self._create_memmap_buffers(config, env)
         else:
             raise ValueError(f"Unknown buffer type: {self.buffer_type}")
 
-    def _create_tensor_buffers(self, config: dict) -> dict:
+    def _create_tensor_buffers(self, config: dict, env) -> dict:
         """Create tensor-based replay buffers.
 
         Args:
@@ -58,9 +58,8 @@ class ReplayBufferFactory(BaseReplayBufferFactory):
         buffers = {}
         batch_size = config.get("batch_size", 256)
         buffer_size = config.get("buffer_size", 10000)
-        agent_groups = config.get("agent_groups", ["default"])
 
-        for agent_group in agent_groups:
+        for agent_group in env.group_map.keys():
             storage = LazyTensorStorage(max_size=buffer_size)
             buffer = ReplayBuffer(
                 storage=storage,
@@ -70,7 +69,7 @@ class ReplayBufferFactory(BaseReplayBufferFactory):
 
         return buffers
 
-    def _create_memmap_buffers(self, config: dict) -> dict:
+    def _create_memmap_buffers(self, config: dict, env) -> dict:
         """Create memory-mapped replay buffers for large datasets.
 
         Args:
@@ -99,12 +98,18 @@ class ReplayBufferFactory(BaseReplayBufferFactory):
         return buffers
 
 
-def get_dummy_replaybuffer_from_factory(loss_modules):
+def get_dummy_replaybuffer_from_factory(env):
     rbuffer_factory = ReplayBufferFactory("tensor")
-    rbuffer = rbuffer_factory.create()
+    config = {}
+    rbuffer = rbuffer_factory.create(config, env)
     return rbuffer
 
 
 if __name__ == "__main__":
+    from heteromark.modules.environment_factory import get_dummy_env_from_factory
+
+    env = get_dummy_env_from_factory()
     rbuffer_factory = ReplayBufferFactory("tensor")
-    rbuffer = rbuffer_factory.create()
+    config = {}
+    rbuffer = rbuffer_factory.create(config, env)
+    print("=== Replay Buffers ===")

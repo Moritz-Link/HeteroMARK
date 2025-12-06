@@ -6,6 +6,8 @@ from tensordict.nn import TensorDictModule
 from torch import nn
 from torchrl.modules import (
     MLP,
+    MaskedCategorical,
+    ProbabilisticActor,
     ValueOperator,
 )
 
@@ -80,7 +82,7 @@ class PolicyFactory(BasePolicyFactory):
             obs_spec = self._get_observation_spec(env, agent_group)
             action_spec = self._get_action_spec(env, agent_group)
             obs_dim = obs_spec[agent_group]["observation"]["observation"].shape[-1]
-            action_dim = action_spec[agent_group]["action"].shape[-1]
+            action_dim = action_spec[agent_group]["action"].space.n
             # obs_dim = obs_spec.shape[-1] if hasattr(obs_spec, "shape") else config.get("obs_dim", 64)
             # action_dim = action_spec.shape[-1] if hasattr(action_spec, "shape") else config.get("action_dim", 4)
 
@@ -96,9 +98,23 @@ class PolicyFactory(BasePolicyFactory):
             # Wrap in TensorDictModule
             policy_module = TensorDictModule(
                 actor_net,
-                in_keys=[(agent_group, "observation")],
-                out_keys=[(agent_group, "action")],
+                in_keys=[(agent_group, "observation", "observation")],
+                out_keys=[(agent_group, "logits")],
             )
+
+            policy_actor = ProbabilisticActor(
+                module=policy_module,
+                spec=env.action_spec[agent_group, "action"],
+                in_keys={
+                    "logits": (agent_group, "logits"),
+                    "mask": (agent_group, "action_mask"),
+                },
+                out_keys=[(agent_group, "action")],
+                distribution_class=MaskedCategorical,
+                return_log_prob=True,
+                log_prob_key=(agent_group, "log_prob"),
+            )
+            policy_modules[agent_group] = policy_actor
 
             # Create critic network
             critic_net = MLP(
@@ -115,7 +131,6 @@ class PolicyFactory(BasePolicyFactory):
                 out_keys=[(agent_group, "state_value")],
             )
 
-            policy_modules[agent_group] = policy_module
             value_modules[agent_group] = value_module
 
         return policy_modules, value_modules
@@ -163,7 +178,6 @@ def get_dummy_policy_from_factory(env):
         "device": "cpu",
     }
     policy_modules, value_modules = policy_factory.create(config, env)
-    print(policy_modules)
     return policy_modules, value_modules
 
 

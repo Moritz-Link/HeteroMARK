@@ -1,17 +1,14 @@
-
-
-import gymnasium as gym
+import numpy as np
 from gymnasium import spaces
 from pettingzoo.utils.env import ParallelEnv
-from heteromark.environment.smac import create_dummy_env
-import numpy as np
+from torchrl.data.tensor_specs import Categorical
 from torchrl.envs.libs.gym import (
-    _gym_to_torchrl_spec_transform, 
-    register_gym_spec_conversion,
     convert_box_spec,
     convert_dict_spec,
-    )
-from torchrl.data.tensor_specs import Categorical
+    register_gym_spec_conversion,
+)
+
+from heteromark.environment.smac import create_dummy_env
 
 
 # Register conversion for gym.spaces.Discrete
@@ -19,13 +16,16 @@ from torchrl.data.tensor_specs import Categorical
 def _discrete_converter(space, **kwargs):
     return Categorical(n=space.n, shape=())
 
+
 @register_gym_spec_conversion(spaces.Dict)
 def _dict_converter(space, **kwargs):
     return convert_dict_spec(space, **kwargs)
 
+
 @register_gym_spec_conversion(spaces.Box)
 def _box_converter(space, **kwargs):
     return convert_box_spec(space, **kwargs)
+
 
 class smac_parallel_env(ParallelEnv):
     def __init__(self, env, max_cycles):
@@ -35,6 +35,8 @@ class smac_parallel_env(ParallelEnv):
         self.reset_flag = 0
         self.agents, self.action_spaces = self._init_agents()
         self.possible_agents = self.agents[:]
+        self.alive_agents = self.agents[:]
+        self.dead_agents = []
         self.device = "cpu"
 
         observation_size = env.get_obs_size()
@@ -104,7 +106,7 @@ class smac_parallel_env(ParallelEnv):
 
     def seed(self, seed=None):
         if seed is None:
-            self.env._seed =42
+            self.env._seed = 42
         else:
             self.env._seed = seed
         self.env.full_restart()
@@ -115,7 +117,11 @@ class smac_parallel_env(ParallelEnv):
     def close(self):
         self.env.close()
 
-    def reset(self,seed: int | None = None):
+    @property
+    def death_tracker_ally(self):
+        return self.env.env.death_tracker_ally
+
+    def reset(self, seed: int | None = None):
         self.env._episode_count = 1
         self.env.reset()
 
@@ -123,6 +129,9 @@ class smac_parallel_env(ParallelEnv):
         self.frames = 0
         self.all_dones = {agent: False for agent in self.possible_agents}
         all_infos = {agent: {} for agent in self.agents}
+        self.alive_agents = self.agents[:]
+        self.dead_agents = []
+        # observation_dict, info_dict
         return self._observe_all(), all_infos
 
     def get_agent_smac_id(self, agent):
@@ -130,9 +139,7 @@ class smac_parallel_env(ParallelEnv):
 
     def _all_rewards(self, reward):
         all_rewards = [reward] * len(self.agents)
-        return {
-            agent: reward for agent, reward in zip(self.agents, all_rewards)
-        }
+        return {agent: reward for agent, reward in zip(self.agents, all_rewards)}
 
     def _observe_all(self):
         all_obs = []
@@ -146,7 +153,6 @@ class smac_parallel_env(ParallelEnv):
             all_obs.append({"observation": obs, "action_mask": action_mask})
         return {agent: obs for agent, obs in zip(self.agents, all_obs)}
 
-    
     def _all_dones(self, step_done=False):
         dones = [True] * len(self.agents)
         if not step_done:
@@ -160,11 +166,11 @@ class smac_parallel_env(ParallelEnv):
         return {agent: bool(done) for agent, done in zip(self.agents, dones)}
 
     def step(self, all_actions):
-        action_list = [0] * self.env.n_agents
+        action_list = [0] * self.env.n_agents  # 0 == no_op
         for agent in self.agents:
             agent_id = self.get_agent_smac_id(agent)
             if agent in all_actions:
-                if all_actions[agent] is None:
+                if all_actions[agent] is None or agent in self.dead_agents:
                     action_list[agent_id] = 0
                 else:
                     action_list[agent_id] = all_actions[agent] + 1
@@ -174,25 +180,38 @@ class smac_parallel_env(ParallelEnv):
 
         all_infos = {agent: {} for agent in self.agents}
         # all_infos.update(smac_info)
-        all_dones = self._all_dones(done)
+
+        # TODO: Endet immer, sobald einer der Agenten truncated?
+        all_terminations = {agent: terminated for agent in self.agents}
+        all_truncation = self._all_dones(done)
         all_rewards = self._all_rewards(self._reward)
         all_observes = self._observe_all()
+        # Update alive and dead agents
+        self.alive_agents = [
+            agent for agent in self.agents if not all_truncation[agent]
+        ]
+        self.dead_agents = [agent for agent in self.agents if all_truncation[agent]]
 
-        self.agents = [agent for agent in self.agents if not all_dones[agent]]
+        # Update action_mask for dead_agents
+        for agent in self.dead_agents:
+            all_observes[agent]["action_mask"] = np.ones_like(
+                all_observes[agent]["action_mask"]
+            )
 
-        return all_observes, all_rewards, all_dones, all_infos
+        # observation_dict, rewards_dict, terminations_dict, truncations_dict, info_dict
+        return all_observes, all_rewards, all_terminations, all_truncation, all_infos
 
     def __del__(self):
         self.env.close()
 
 
 def create_dummy_parallel_pz_env():
-    print("=== Creating dummy parallel pz env ===")
     basic_env = create_dummy_env()
     specs = {}
     specs["max_cycles"] = 500
-    #env = parallel_env(500, specs["max_cycles"])
+    # env = parallel_env(500, specs["max_cycles"])
     env = smac_parallel_env(basic_env, specs["max_cycles"])
+    print("=== Created Dummy ENv ===")
     return env
 
 

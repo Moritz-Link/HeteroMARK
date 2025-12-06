@@ -133,7 +133,8 @@ class OptimizerFactory(BaseOptimizerFactory):
 
 def get_dummy_loss_from_factory(loss_modules):
     optmizer_factory = OptimizerFactory("adam")
-    optimizer = optmizer_factory.create(loss_modules=loss_modules, config=None)
+    config = {}
+    optimizer = optmizer_factory.create(loss_modules=loss_modules, config=config)
     return optimizer
 
 
@@ -144,7 +145,9 @@ if __name__ == "__main__":
 
     env = get_dummy_env_from_factory()
     policy_modules, value_modules = get_dummy_policy_from_factory(env)
-    loss_modules = get_dummy_loss_modules_from_factory(policy_modules, value_modules)
+    loss_modules, _ = get_dummy_loss_modules_from_factory(policy_modules, value_modules)
 
     optmizer_factory = OptimizerFactory("adam")
-    optimizer = optmizer_factory.create(loss_modules=loss_modules, config=None)
+    config = {}
+    optimizer = optmizer_factory.create(loss_modules=loss_modules, config=config)
+    print("=== Optimizers ===")

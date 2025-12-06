@@ -69,8 +69,6 @@ class CollectorFactory(BaseCollectorFactory):
         total_frames = config.get("total_frames", 1000000)
         device = torch.device(config.get("device", "cpu"))
 
-        # Create a combined policy module if there are multiple agents
-        # TODO: das passt hier nicht
         if len(policy_modules) > 1:
             # For multi-agent, we need to handle policy execution differently
             # This is a simplified approach - you may need custom logic
@@ -85,6 +83,7 @@ class CollectorFactory(BaseCollectorFactory):
             total_frames=total_frames,
             device=device,
             storing_device=device,
+            reset_at_each_iter=True,
         )
 
         return collector
@@ -150,7 +149,7 @@ class CollectorFactory(BaseCollectorFactory):
 def get_dummy_collector(env, policy_modules):
     config = {}
     collector_factory = CollectorFactory("sync")
-    collector_factory.create(config=None, env=env, policy_modules=policy_modules)
+    collector_factory.create(config=config, env=env, policy_modules=policy_modules)
 
 
 if __name__ == "__main__":
@@ -161,4 +160,10 @@ if __name__ == "__main__":
     policy_modules, _ = get_dummy_policy_from_factory(env)
     collector_factory = CollectorFactory("sync")
     config = {}
-    collector_factory.create(config=config, env=None, policy_modules=None)
+    col = collector_factory.create(
+        config=config, env=env, policy_modules=policy_modules
+    )
+    print("== Collector Output Sample ==")
+    for i, td in enumerate(col):
+        print(td)
+        break

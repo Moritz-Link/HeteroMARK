@@ -1,20 +1,20 @@
 from abc import ABC, abstractmethod
 from typing import Any
-from torchrl.envs import ParallelEnv, TransformedEnv
-
-
-from heteromark.environment import create_env, create_dummy_env,create_dummy_parallel_pz_env
 
 from torchrl.envs import (
     Compose,
+    ParallelEnv,
     StepCounter,
+    TransformedEnv,
 )
 from torchrl.envs.libs.pettingzoo import PettingZooWrapper
 
-
-STANDARD_ENV_TRANSFORMS = Compose(
-    StepCounter()
+from heteromark.environment import (
+    create_dummy_parallel_pz_env,
+    create_env,
 )
+
+STANDARD_ENV_TRANSFORMS = Compose(StepCounter())
 
 
 class BaseEnvironmentFactory(ABC):
@@ -73,7 +73,11 @@ class EnvironmentFactory(BaseEnvironmentFactory):
             env = create_dummy_parallel_pz_env()
             use_mask = False
             env = PettingZooWrapper(
-                env=env, return_state=False, group_map=None, use_mask=use_mask
+                env=env,
+                return_state=False,
+                group_map=None,
+                use_mask=use_mask,
+                done_on_any=False,
             )
             env = self._apply_transforms(env)
             return env
@@ -91,8 +95,7 @@ class EnvironmentFactory(BaseEnvironmentFactory):
         # Wrap in parallel env if specified
         if config.get("num_parallel_envs", 1) > 1:
             env = ParallelEnv(
-                num_workers=config["num_parallel_envs"],
-                create_env_fn=lambda: env
+                num_workers=config["num_parallel_envs"], create_env_fn=lambda: env
             )
 
         return env
@@ -121,12 +124,8 @@ class EnvironmentFactory(BaseEnvironmentFactory):
         """
         # This would apply various TorchRL transforms
         # For now, return the environment as-is
-        env = TransformedEnv(
-            env,
-            STANDARD_ENV_TRANSFORMS
-        )
+        env = TransformedEnv(env, STANDARD_ENV_TRANSFORMS)
         return env
-
 
 
 def get_dummy_env_from_factory():
@@ -145,8 +144,9 @@ def get_dummy_env_from_factory():
 
     env = env_factory.create(config)
 
-
     return env
+
+
 if __name__ == "__main__":
     env_factory = EnvironmentFactory(env_type="smac")
     config = {
@@ -157,7 +157,7 @@ if __name__ == "__main__":
             # Additional configuration...
         },
         "use_dummy": True,
-        "num_parallel_envs": 2,
+        "num_parallel_envs": 1,
         "transforms": [],
     }
 
@@ -167,4 +167,3 @@ if __name__ == "__main__":
     # env = env_factory._apply_transforms(env)
 
     # print(" === Finished Applying Transforms === ")
-

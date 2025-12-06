@@ -149,7 +149,6 @@ class LossFactory(BaseLossFactory):
                 value_network=value_modules[agent_group],
                 average_gae=False,
             )
-
             # Create PPO loss module
             loss_module = ClipPPOLoss(
                 actor_network=policy_modules[agent_group],
@@ -184,10 +183,12 @@ class LossFactory(BaseLossFactory):
 
 def get_dummy_loss_modules_from_factory(policy_modules, value_modules):
     loss_factory = LossFactory("ppo")
-    loss_modules = loss_factory.create(
-        policy_modules=policy_modules, value_modules=value_modules
+    config = {}
+    loss_modules, advantage_modules = loss_factory.create(
+        config=config, policy_modules=policy_modules, value_modules=value_modules
     )
-    return loss_modules
+
+    return loss_modules, advantage_modules
 
 
 if __name__ == "__main__":
@@ -198,6 +199,8 @@ if __name__ == "__main__":
     policy_modules, value_modules = get_dummy_policy_from_factory(env)
 
     loss_factory = LossFactory("ppo")
-    loss_modules = loss_factory.create(
-        policy_modules=policy_modules, value_modules=value_modules
+    config = {}
+    loss_modules, advantage_modules = loss_factory.create(
+        config=config, policy_modules=policy_modules, value_modules=value_modules
     )
+    print("=== Loss Modules ===")

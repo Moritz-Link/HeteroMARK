@@ -5,27 +5,22 @@ This script demonstrates a clean, modular approach to training multi-agent
 reinforcement learning systems using the factory design pattern.
 """
 
+from typing import Any
+
 import torch
-from tqdm import tqdm
-from typing import Dict, Any
 from omegaconf import DictConfig
+from tqdm import tqdm
 
-import sys
-from pathlib import Path
-
-# Add project root to path
-project_root = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(project_root))
-
+from heteromark.algorithm.happo_algorithm import HappoAlgorithm
 from heteromark.modules import (
+    CollectorFactory,
     EnvironmentFactory,
-    PolicyFactory,
     LossFactory,
     OptimizerFactory,
-    CollectorFactory,
+    PolicyFactory,
     ReplayBufferFactory,
 )
-from heteromark.algorithm.happo_algorithm import HappoAlgorithm
+from heteromark.training.utils import log_info
 
 
 class ComponentFactory:
@@ -41,15 +36,11 @@ class ComponentFactory:
         self.device = torch.device(config.get("device", "cpu"))
 
         # Initialize factories
-        self.env_factory = EnvironmentFactory(
-            env_type=config.get("env_type", "smac")
-        )
+        self.env_factory = EnvironmentFactory(env_type=config.get("env_type", "smac"))
         self.policy_factory = PolicyFactory(
             policy_type=config.get("policy_type", "mlp")
         )
-        self.loss_factory = LossFactory(
-            loss_type=config.get("loss_type", "happo")
-        )
+        self.loss_factory = LossFactory(loss_type=config.get("loss_type", "ppo"))
         self.optimizer_factory = OptimizerFactory(
             optimizer_type=config.get("optimizer_type", "adam")
         )
@@ -60,7 +51,7 @@ class ComponentFactory:
             buffer_type=config.get("buffer_type", "tensor")
         )
 
-    def create_components(self) -> Dict[str, Any]:
+    def create_components(self) -> dict[str, Any]:
         """Create all training components using factories.
 
         Returns:
@@ -72,13 +63,17 @@ class ComponentFactory:
         components["env"] = self.env_factory.create(self.config.environment)
 
         # Create policy and value networks
-        components["policy_modules"], components["value_modules"] = self.policy_factory.create(
-            self.config.policy, components["env"]
+        components["policy_modules"], components["value_modules"] = (
+            self.policy_factory.create(self.config.policy, components["env"])
         )
 
         # Create loss modules and advantage estimators
-        components["loss_modules"], components["advantage_modules"] = self.loss_factory.create(
-            self.config.loss, components["policy_modules"], components["value_modules"]
+        components["loss_modules"], components["advantage_modules"] = (
+            self.loss_factory.create(
+                self.config.loss,
+                components["policy_modules"],
+                components["value_modules"],
+            )
         )
 
         # Create optimizers
@@ -91,7 +86,9 @@ class ComponentFactory:
             **self.config.replay_buffer,
             "agent_groups": list(components["policy_modules"].keys()),
         }
-        components["replay_buffers"] = self.buffer_factory.create(buffer_config)
+        components["replay_buffers"] = self.buffer_factory.create(
+            buffer_config, components["env"]
+        )
 
         # Create data collector
         components["collector"] = self.collector_factory.create(
@@ -134,7 +131,7 @@ def process_batch(tensordict_data: Any, agent_group: str, device: torch.device) 
     return group_batch.reshape(-1)
 
 
-def train(components: Dict[str, Any], config: DictConfig) -> Dict[str, Any]:
+def train(components: dict[str, Any], config: DictConfig) -> dict[str, Any]:
     """Execute training loop with provided components.
 
     Args:
@@ -162,7 +159,7 @@ def train(components: Dict[str, Any], config: DictConfig) -> Dict[str, Any]:
     pbar = tqdm(total=total_frames, desc="Training")
     frames = 0
 
-    for i, tensordict_data in enumerate(collector):
+    for _, tensordict_data in enumerate(collector):
         batch_frames = tensordict_data.numel()
 
         # HAPPO-specific: Reset factor for new batch
@@ -235,7 +232,7 @@ def train(components: Dict[str, Any], config: DictConfig) -> Dict[str, Any]:
     return policy_modules
 
 
-def train_with_factories(config: DictConfig) -> Dict[str, Any]:
+def train_with_factories(config: DictConfig) -> dict[str, Any]:
     """Main training function using factory pattern.
 
     Args:
@@ -244,6 +241,8 @@ def train_with_factories(config: DictConfig) -> Dict[str, Any]:
     Returns:
         Trained policy modules
     """
+
+    log_info(config)
     # Create component factory
     factory = ComponentFactory(config)
 
@@ -260,52 +259,59 @@ if __name__ == "__main__":
     # Example configuration
     from omegaconf import OmegaConf
 
-    config = OmegaConf.create({
-        "device": "cpu",
-        "env_type": "smac",
-        "policy_type": "mlp",
-        "loss_type": "happo",
-        "optimizer_type": "adam",
-        "collector_type": "sync",
-        "buffer_type": "tensor",
-        "environment": {
-            "use_dummy": True,
-            "num_parallel_envs": 1,
-        },
-        "policy": {
-            "hidden_sizes": [64, 64],
-            "activation": "Tanh",
+    config = OmegaConf.create(
+        {
             "device": "cpu",
-        },
-        "loss": {
-            "clip_epsilon": 0.2,
-            "entropy_coeff": 0.01,
-            "critic_coeff": 1.0,
-            "gamma": 0.99,
-            "lmbda": 0.95,
-            "normalize_advantage": True,
-        },
-        "optimizer": {
-            "learning_rate": 3e-4,
-            "weight_decay": 0.0,
-            "eps": 1e-8,
-        },
-        "collector": {
-            "frames_per_batch": 1000,
-            "total_frames": 100000,
-            "device": "cpu",
-        },
-        "replay_buffer": {
-            "batch_size": 256,
-            "buffer_size": 10000,
-        },
-        "training": {
-            "total_frames": 100000,
-            "num_epochs": 4,
-            "max_grad_norm": 1.0,
-        },
-    })
+            "env_type": "smac",
+            "policy_type": "mlp",
+            "loss_type": "ppo",
+            "optimizer_type": "adam",
+            "collector_type": "sync",
+            "buffer_type": "tensor",
+            "environment": {
+                "use_dummy": True,
+                "num_parallel_envs": 1,
+            },
+            "policy": {
+                "hidden_sizes": [64, 64],
+                "activation": "Tanh",
+                "device": "cpu",
+            },
+            "loss": {
+                "clip_epsilon": 0.2,
+                "entropy_coeff": 0.01,
+                "critic_coeff": 1.0,
+                "gamma": 0.99,
+                "lmbda": 0.95,
+                "normalize_advantage": True,
+            },
+            "optimizer": {
+                "learning_rate": 3e-4,
+                "weight_decay": 0.0,
+                "eps": 1e-8,
+            },
+            "collector": {
+                "frames_per_batch": 1000,
+                "total_frames": 100000,
+                "device": "cpu",
+            },
+            "replay_buffer": {
+                "batch_size": 256,
+                "buffer_size": 2000,
+            },
+            "training": {
+                "total_frames": 10000,
+                "num_epochs": 4,
+                "max_grad_norm": 1.0,
+            },
+        }
+    )
 
-    # Train
+    ##### Test Component Factories #####
+    # factory = ComponentFactory(config)
+
+    # factory.create_components()
+    # print("All components created successfully!")
+    # ----- Train
     trained_policies = train_with_factories(config)
     print("Training completed!")
