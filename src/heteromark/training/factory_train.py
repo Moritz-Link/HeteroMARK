@@ -131,6 +131,9 @@ def process_batch(tensordict_data: Any, agent_group: str, device: torch.device) 
     return group_batch.reshape(-1)
 
 
+from heteromark.training.utils import filter_tensordict_by_agent, get_agent_group
+
+
 def train(components: dict[str, Any], config: DictConfig) -> dict[str, Any]:
     """Execute training loop with provided components.
 
@@ -167,33 +170,38 @@ def train(components: dict[str, Any], config: DictConfig) -> dict[str, Any]:
             happo_algorithm.reset_factor(tensordict_data)
             agent_order = happo_algorithm.get_agent_order()
         else:
-            agent_order = list(policy_modules.keys())
+            agent_order = env.agents
 
         # Training epochs
+
         for epoch_idx in range(num_epochs):
             # Iterate over agent groups
-            for agent_group in agent_order:
+            for agent in agent_order:
+                agent_group = get_agent_group(agent)
                 # Process batch for this agent group
-                group_batch = process_batch(tensordict_data, agent_group, device)
+                filtered_td = filter_tensordict_by_agent(
+                    tensordict_data, agent_name=agent, agent_group=agent_group
+                )
+                # group_batch = process_batch(filtered_td, agent_group, device)
                 group_buffer = replay_buffers[agent_group]
                 group_loss_module = loss_modules[agent_group]
                 group_optimizer = optimizers[agent_group]
-
+                group_buffer.empty()
                 # Compute advantages
                 with torch.no_grad():
                     group_loss_module.value_estimator(
-                        group_batch,
+                        filtered_td,
                         params=group_loss_module.critic_network_params,
                         target_params=group_loss_module.target_critic_network_params,
                     )
 
                     # Add HAPPO factor if using HAPPO
                     if happo_algorithm:
-                        factor = happo_algorithm.get_factor_for_agent(agent_group)
-                        group_batch.set((agent_group, "factor"), factor)
+                        factor = happo_algorithm.get_factor_for_agent(agent)
+                        filtered_td.set((agent, "factor"), factor)
 
                 # Add to replay buffer
-                group_buffer.extend(group_batch.to(device))
+                group_buffer.extend(filtered_td.to(device))
 
                 # Training on mini-batches
                 for batch in group_buffer:
@@ -218,8 +226,9 @@ def train(components: dict[str, Any], config: DictConfig) -> dict[str, Any]:
                     group_optimizer.zero_grad()
 
                 # Update HAPPO factor after training this agent
+
                 if happo_algorithm:
-                    happo_algorithm.update_factor(group_batch, agent_group)
+                    happo_algorithm.update_factor(filtered_td, agent)
 
         frames += batch_frames
         pbar.update(batch_frames)
@@ -291,8 +300,8 @@ if __name__ == "__main__":
                 "eps": 1e-8,
             },
             "collector": {
-                "frames_per_batch": 1000,
-                "total_frames": 100000,
+                "frames_per_batch": 128,
+                "total_frames": 10000,
                 "device": "cpu",
             },
             "replay_buffer": {
