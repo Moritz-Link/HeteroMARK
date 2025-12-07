@@ -116,24 +116,24 @@ class PolicyFactory(BasePolicyFactory):
             )
             policy_modules[agent_group] = policy_actor
 
-            # Create critic network
-            critic_net = MLP(
-                in_features=obs_dim,
-                out_features=1,
-                num_cells=hidden_sizes,
-                activation_class=activation_class,
-                device=device,
-            )
+        #### Value Network
+        # TODO: Letzte agent information
+        # Create critic network
+        critic_net = MLP(
+            in_features=obs_dim,
+            out_features=1,
+            num_cells=hidden_sizes,
+            activation_class=activation_class,
+            device=device,
+        )
 
-            value_module = ValueOperator(
-                module=critic_net,
-                in_keys=[(agent_group, "observation")],
-                out_keys=[(agent_group, "state_value")],
-            )
+        value_module = ValueOperator(
+            module=critic_net,
+            in_keys=[("critic", "observation")],
+            out_keys=[("state_value")],
+        )
 
-            value_modules[agent_group] = value_module
-
-        return policy_modules, value_modules
+        return policy_modules, value_module
 
     def _get_observation_spec(self, env: Any, agent_group: str) -> Any:
         """Extract observation spec for an agent group.

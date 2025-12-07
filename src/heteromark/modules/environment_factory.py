@@ -4,6 +4,7 @@ from typing import Any
 from torchrl.envs import (
     Compose,
     ParallelEnv,
+    RewardSum,
     StepCounter,
     TransformedEnv,
 )
@@ -14,7 +15,9 @@ from heteromark.environment import (
     create_env,
 )
 
-STANDARD_ENV_TRANSFORMS = Compose(StepCounter())
+STANDARD_ENV_TRANSFORMS = Compose(
+    StepCounter(),
+)
 
 
 class BaseEnvironmentFactory(ABC):
@@ -124,6 +127,20 @@ class EnvironmentFactory(BaseEnvironmentFactory):
         """
         # This would apply various TorchRL transforms
         # For now, return the environment as-is
+
+        for agent_group in env.group_map.keys():
+            STANDARD_ENV_TRANSFORMS.append(
+                RewardSum([(agent_group, "reward")], ["reward"])
+            )
+            self.reward_key = ((agent_group, "reward"), "reward")
+            # STANDARD_ENV_TRANSFORMS.append(
+            #     SqueezeTransform(dim=0, in_keys=["reward"], out_keys=["reward"])
+            # )
+            # STANDARD_ENV_TRANSFORMS.append(
+            #     SqueezeTransform(dim=-1, in_keys=("reward"), out_keys=("reward"))
+            # )
+            break
+
         env = TransformedEnv(env, STANDARD_ENV_TRANSFORMS)
         return env
 

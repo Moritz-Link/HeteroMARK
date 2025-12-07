@@ -153,6 +153,7 @@ def train(components: dict[str, Any], config: DictConfig) -> dict[str, Any]:
     collector = components["collector"]
     happo_algorithm = components["happo_algorithm"]
     device = components["device"]
+    advantage_module = components["advantage_modules"]
 
     # Training parameters
     total_frames = config.training.total_frames
@@ -161,9 +162,21 @@ def train(components: dict[str, Any], config: DictConfig) -> dict[str, Any]:
 
     pbar = tqdm(total=total_frames, desc="Training")
     frames = 0
-
+    agent_groups = env.group_map
+    random_agent_group = list(agent_groups.keys())[0]
     for _, tensordict_data in enumerate(collector):
         batch_frames = tensordict_data.numel()
+
+        ### ADapt the reward
+        tensordict_data["reward"] = tensordict_data["reward"][:, 0]
+        tensordict_data[("next", "reward")] = tensordict_data[("next", "reward")][:, 0]
+
+        tensordict_data[("critic", "observation")] = tensordict_data[
+            (random_agent_group, "observation", "observation")
+        ][:, 0]
+        tensordict_data[("next", "critic", "observation")] = tensordict_data[
+            ("next", random_agent_group, "observation", "observation")
+        ][:, 0]
 
         # HAPPO-specific: Reset factor for new batch
         if happo_algorithm:
@@ -175,6 +188,14 @@ def train(components: dict[str, Any], config: DictConfig) -> dict[str, Any]:
         # Training epochs
 
         for epoch_idx in range(num_epochs):
+            # Compute advantages
+            with torch.no_grad():
+                advantage_module(tensordict_data)
+
+            #     # Add HAPPO factor if using HAPPO
+            # if happo_algorithm:
+            #     factor = happo_algorithm.get_factor_for_agent(agent)
+            #     filtered_td.set((agent, "factor"), factor)
             # Iterate over agent groups
             for agent in agent_order:
                 agent_group = get_agent_group(agent)
@@ -182,23 +203,14 @@ def train(components: dict[str, Any], config: DictConfig) -> dict[str, Any]:
                 filtered_td = filter_tensordict_by_agent(
                     tensordict_data, agent_name=agent, agent_group=agent_group
                 )
+                filtered_td[(agent_group, "advantage")] = (
+                    filtered_td["advantage"].clone().unsqueeze(-1)
+                )
                 # group_batch = process_batch(filtered_td, agent_group, device)
                 group_buffer = replay_buffers[agent_group]
                 group_loss_module = loss_modules[agent_group]
                 group_optimizer = optimizers[agent_group]
                 group_buffer.empty()
-                # Compute advantages
-                with torch.no_grad():
-                    group_loss_module.value_estimator(
-                        filtered_td,
-                        params=group_loss_module.critic_network_params,
-                        target_params=group_loss_module.target_critic_network_params,
-                    )
-
-                    # Add HAPPO factor if using HAPPO
-                    if happo_algorithm:
-                        factor = happo_algorithm.get_factor_for_agent(agent)
-                        filtered_td.set((agent, "factor"), factor)
 
                 # Add to replay buffer
                 group_buffer.extend(filtered_td.to(device))
@@ -211,8 +223,8 @@ def train(components: dict[str, Any], config: DictConfig) -> dict[str, Any]:
                     loss_vals = group_loss_module(batch)
                     total_loss = (
                         loss_vals["loss_objective"]
-                        + loss_vals["loss_critic"]
-                        + loss_vals.get("loss_entropy", 0.0)
+                        # + loss_vals["loss_critic"]
+                        + loss_vals["loss_entropy"]
                     )
 
                     # Backward pass
@@ -305,7 +317,7 @@ if __name__ == "__main__":
                 "device": "cpu",
             },
             "replay_buffer": {
-                "batch_size": 256,
+                "batch_size": 32,
                 "buffer_size": 2000,
             },
             "training": {

@@ -115,9 +115,7 @@ def filter_tensordict_by_agent(
     agent_specific_data = agent_group_data[:, agent_idx : agent_idx + 1]
 
     # Get the truncated flag for this agent [batch_size, 1, 1]
-    truncated = agent_specific_data["truncated"].squeeze(-1).squeeze(
-        -1
-    )  # [batch_size]
+    truncated = agent_specific_data["truncated"].squeeze(-1).squeeze(-1)  # [batch_size]
 
     # Create mask for non-truncated samples
     non_truncated_mask = ~truncated
@@ -159,7 +157,16 @@ def filter_tensordict_by_agent(
         )
 
     # Filter other top-level tensors by the mask
-    for key in ["done", "step_count", "terminated", "truncated"]:
+    for key in [
+        "done",
+        "step_count",
+        "terminated",
+        "truncated",
+        "advantage",
+        "reward",
+        "state_value",
+        "value_target",
+    ]:
         if key in filtered_dict:
             filtered_dict[key] = filtered_dict[key][non_truncated_mask]
 

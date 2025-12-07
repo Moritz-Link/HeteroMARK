@@ -4,6 +4,7 @@ from torchrl.objectives import ClipPPOLoss
 from torchrl.objectives.value import GAE
 
 from heteromark.loss.happo_loss import ClipHAPPOLoss
+from heteromark.loss.value_estimation_loss import LossValueEstimationModule
 
 
 class BaseLossFactory(ABC):
@@ -118,7 +119,7 @@ class LossFactory(BaseLossFactory):
         return loss_modules, advantage_modules
 
     def _create_ppo_loss(
-        self, config: dict, policy_modules: dict, value_modules: dict
+        self, config: dict, policy_modules: dict, value_module: dict
     ) -> tuple[dict, dict]:
         """Create PPO loss modules.
 
@@ -143,38 +144,54 @@ class LossFactory(BaseLossFactory):
         for agent_group in policy_modules.keys():
             # Create GAE advantage estimator
             # TODO: ADvantage Module immer raus -> Nur CTDE
-            advantage_module = GAE(
-                gamma=gamma,
-                lmbda=lmbda,
-                value_network=value_modules[agent_group],
-                average_gae=False,
-            )
+
             # Create PPO loss module
             loss_module = ClipPPOLoss(
                 actor_network=policy_modules[agent_group],
-                critic_network=value_modules[agent_group],
+                critic_network=None,
                 clip_epsilon=clip_epsilon,
                 entropy_coeff=entropy_coeff,
-                critic_coeff=critic_coeff,
+                critic_coeff=None,
                 normalize_advantage=config.get("normalize_advantage", True),
             )
 
             # Set appropriate keys for multi-agent setup
             loss_module.set_keys(
-                advantage=(agent_group, "advantage"),
-                value_target=(agent_group, "value_target"),
-                value=(agent_group, "state_value"),
-                sample_log_prob=(agent_group, "action_log_prob"),
+                sample_log_prob=(agent_group, "log_prob"),
                 action=(agent_group, "action"),
-                reward=(agent_group, "reward"),
+                advantage=(agent_group, "advantage"),
                 done=(agent_group, "done"),
                 terminated=(agent_group, "terminated"),
+                value_target=("value_target"),
+                value=("state_value"),
+                reward=("reward"),
             )
 
             loss_modules[agent_group] = loss_module
-            advantage_modules[agent_group] = advantage_module
 
-        return loss_modules, advantage_modules
+        advantage_module = GAE(
+            gamma=gamma,
+            lmbda=lmbda,
+            value_network=value_module,
+            average_gae=False,
+            deactivate_vmap=False,
+        )
+        advantage_module.set_keys(
+            reward=("reward"),
+            value_target=("value_target"),
+        )
+
+        critic_loss_module = LossValueEstimationModule(
+            value_network=value_module,
+            loss_critic_type="smooth_l1",
+            state_value_key="state_value",
+            value_target_key="value_target",
+            critic_coeff=critic_coeff,
+        )
+
+        loss_modules["critic"] = critic_loss_module
+
+        return loss_modules, advantage_module
 
 
 # class enum LossTypes:
