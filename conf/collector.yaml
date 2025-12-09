@@ -1,0 +1,6 @@
+# Data collector configuration
+# Controls environment interaction and data collection
+
+frames_per_batch: 128  # Number of frames collected per batch
+total_frames: 10000  # Total frames to collect (can override training.total_frames)
+device: cpu  # Device for collector (cpu, cuda)

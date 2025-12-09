@@ -1,0 +1,6 @@
+# Training loop configuration
+# High-level training parameters
+
+total_frames: 10000  # Total frames to train on
+num_epochs: 4  # Number of epochs to train per batch
+max_grad_norm: 1.0  # Maximum gradient norm for clipping

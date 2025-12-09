@@ -4,7 +4,13 @@
       "Read(//mnt/c/Users/morit/Documents/GitHub_Repos/HeteroMARk/src/environment/**)",
       "Bash(mkdir:*)",
       "Bash(find:*)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(dir:*)",
+      "Bash(if exist conf echo \"conf exists\" else mkdir conf)",
+      "Bash(python conf/validate_config.py:*)",
+      "Bash(python3:*)",
+      "Bash(.venv/Scripts/python.exe:*)",
+      "Bash(../.venv/Scripts/python.exe:*)"
     ],
     "deny": [],
     "ask": []

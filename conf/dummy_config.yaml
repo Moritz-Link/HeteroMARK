@@ -1,0 +1,61 @@
+# Main configuration file for HeteroMARK training
+# This file combines all component configs using Hydra's defaults system
+
+defaults:
+  - environment
+  - policy
+  - loss
+  - optimizer
+  - collector
+  - replay_buffer
+  - training
+  - _self_
+
+# Top-level configuration
+device: cpu  # Global device (cpu, cuda)
+
+# Component type selection
+env_type: smac  # Environment type: smac, custom
+policy_type: mlp  # Policy architecture: mlp (extensible)
+loss_type: ppo  # Loss function: ppo, happo
+optimizer_type: adam  # Optimizer: adam, sgd, rmsprop
+collector_type: sync  # Collector type: sync, multi_sync
+buffer_type: tensor  # Replay buffer type: tensor, memmap
+
+# Group component configs into nested structure
+# This ensures they remain namespaced
+environment:
+  use_dummy: true
+  num_parallel_envs: 1
+
+policy:
+  hidden_sizes: [64, 64]
+  activation: Tanh
+  device: cpu
+
+loss:
+  clip_epsilon: 0.2
+  entropy_coeff: 0.01
+  critic_coeff: 1.0
+  gamma: 0.99
+  lmbda: 0.95
+  normalize_advantage: true
+
+optimizer:
+  learning_rate: 3e-4
+  weight_decay: 0.0
+  eps: 1e-8
+
+collector:
+  frames_per_batch: 128
+  total_frames: 10000
+  device: cpu
+
+replay_buffer:
+  batch_size: 32
+  buffer_size: 2000
+
+training:
+  total_frames: 10000
+  num_epochs: 4
+  max_grad_norm: 1.0

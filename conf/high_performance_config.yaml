@@ -1,0 +1,42 @@
+# High-performance training configuration
+# Larger batches, more epochs, longer training
+
+defaults:
+  - dummy_config
+
+# Use CUDA if available
+device: cuda
+
+# Environment settings for better data collection
+environment:
+  use_dummy: false  # Use real SMAC environment
+  num_parallel_envs: 4  # More parallel environments
+
+# Deeper networks for complex tasks
+policy:
+  hidden_sizes: [128, 128, 64]
+  activation: ReLU
+  device: cuda
+
+# More aggressive learning
+optimizer:
+  learning_rate: 5e-4
+  weight_decay: 0.0
+  eps: 1e-8
+
+# Larger batches for stability
+collector:
+  frames_per_batch: 512
+  total_frames: 1000000
+  device: cuda
+
+# Larger buffer and mini-batches
+replay_buffer:
+  batch_size: 128
+  buffer_size: 10000
+
+# Extended training
+training:
+  total_frames: 1000000
+  num_epochs: 10
+  max_grad_norm: 0.5

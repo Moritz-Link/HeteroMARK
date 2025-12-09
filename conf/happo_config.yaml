@@ -1,0 +1,17 @@
+# HAPPO training configuration
+# Uses HAPPO algorithm for heterogeneous agents
+
+defaults:
+  - dummy_config
+
+# Override loss type to use HAPPO
+loss_type: happo
+
+# HAPPO typically benefits from slightly different hyperparameters
+loss:
+  clip_epsilon: 0.2
+  entropy_coeff: 0.01
+  critic_coeff: 1.0
+  gamma: 0.99
+  lmbda: 0.95
+  normalize_advantage: true

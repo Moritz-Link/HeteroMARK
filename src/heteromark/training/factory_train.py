@@ -7,6 +7,7 @@ reinforcement learning systems using the factory design pattern.
 
 from typing import Any
 
+import hydra
 import torch
 from omegaconf import DictConfig
 from tqdm import tqdm
@@ -257,6 +258,7 @@ def train(components: dict[str, Any], config: DictConfig) -> dict[str, Any]:
     return policy_modules
 
 
+@hydra.main(version_base=None, config_path="../../../conf", config_name="dummy_config")
 def train_with_factories(config: DictConfig) -> dict[str, Any]:
     """Main training function using factory pattern.
 
@@ -281,62 +283,5 @@ def train_with_factories(config: DictConfig) -> dict[str, Any]:
 
 
 if __name__ == "__main__":
-    # Example configuration
-    from omegaconf import OmegaConf
-
-    config = OmegaConf.create(
-        {
-            "device": "cpu",
-            "env_type": "smac",
-            "policy_type": "mlp",
-            "loss_type": "ppo",
-            "optimizer_type": "adam",
-            "collector_type": "sync",
-            "buffer_type": "tensor",
-            "environment": {
-                "use_dummy": True,
-                "num_parallel_envs": 1,
-            },
-            "policy": {
-                "hidden_sizes": [64, 64],
-                "activation": "Tanh",
-                "device": "cpu",
-            },
-            "loss": {
-                "clip_epsilon": 0.2,
-                "entropy_coeff": 0.01,
-                "critic_coeff": 1.0,
-                "gamma": 0.99,
-                "lmbda": 0.95,
-                "normalize_advantage": True,
-            },
-            "optimizer": {
-                "learning_rate": 3e-4,
-                "weight_decay": 0.0,
-                "eps": 1e-8,
-            },
-            "collector": {
-                "frames_per_batch": 128,
-                "total_frames": 10000,
-                "device": "cpu",
-            },
-            "replay_buffer": {
-                "batch_size": 32,
-                "buffer_size": 2000,
-            },
-            "training": {
-                "total_frames": 10000,
-                "num_epochs": 4,
-                "max_grad_norm": 1.0,
-            },
-        }
-    )
-
-    ##### Test Component Factories #####
-    # factory = ComponentFactory(config)
-
-    # factory.create_components()
-    # print("All components created successfully!")
-    # ----- Train
-    trained_policies = train_with_factories(config)
+    trained_policies = train_with_factories()
     print("Training completed!")

@@ -1,0 +1,32 @@
+# Fast debug configuration
+# Minimal training for quick testing and debugging
+
+defaults:
+  - dummy_config
+
+# Minimal settings for fast iteration
+environment:
+  use_dummy: true
+  num_parallel_envs: 1
+
+# Small networks
+policy:
+  hidden_sizes: [32, 32]
+  activation: Tanh
+  device: cpu
+
+# Small batches
+collector:
+  frames_per_batch: 64
+  total_frames: 1000
+  device: cpu
+
+replay_buffer:
+  batch_size: 16
+  buffer_size: 500
+
+# Minimal training
+training:
+  total_frames: 1000
+  num_epochs: 2
+  max_grad_norm: 1.0

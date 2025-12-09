@@ -1,0 +1,59 @@
+use_dummy: true
+num_parallel_envs: 1
+hidden_sizes:
+- 64
+- 64
+activation: Tanh
+device: cpu
+clip_epsilon: 0.2
+entropy_coeff: 0.01
+critic_coeff: 1.0
+gamma: 0.99
+lmbda: 0.95
+normalize_advantage: true
+learning_rate: 0.0003
+weight_decay: 0.0
+eps: 1.0e-08
+frames_per_batch: 128
+total_frames: 10000
+batch_size: 32
+buffer_size: 2000
+num_epochs: 4
+max_grad_norm: 1.0
+env_type: smac
+policy_type: mlp
+loss_type: ppo
+optimizer_type: adam
+collector_type: sync
+buffer_type: tensor
+environment:
+  use_dummy: true
+  num_parallel_envs: 1
+policy:
+  hidden_sizes:
+  - 64
+  - 64
+  activation: Tanh
+  device: cpu
+loss:
+  clip_epsilon: 0.2
+  entropy_coeff: 0.01
+  critic_coeff: 1.0
+  gamma: 0.99
+  lmbda: 0.95
+  normalize_advantage: true
+optimizer:
+  learning_rate: 0.0003
+  weight_decay: 0.0
+  eps: 1.0e-08
+collector:
+  frames_per_batch: 128
+  total_frames: 10000
+  device: cpu
+replay_buffer:
+  batch_size: 32
+  buffer_size: 2000
+training:
+  total_frames: 10000
+  num_epochs: 4
+  max_grad_norm: 1.0

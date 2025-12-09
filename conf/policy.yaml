@@ -1,0 +1,6 @@
+# Policy network configuration
+# Defines actor-critic network architecture
+
+hidden_sizes: [64, 64]  # Hidden layer sizes for policy and value networks
+activation: Tanh  # Activation function (Tanh, ReLU, etc.)
+device: cpu  # Device for policy networks (cpu, cuda)
