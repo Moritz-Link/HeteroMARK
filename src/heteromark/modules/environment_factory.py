@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
+import hydra
+from omegaconf import DictConfig, OmegaConf
 from torchrl.envs import (
     Compose,
     ParallelEnv,
@@ -12,7 +14,7 @@ from torchrl.envs.libs.pettingzoo import PettingZooWrapper
 
 from heteromark.environment import (
     create_dummy_parallel_pz_env,
-    create_env,
+    create_parallel_pz_env,
 )
 
 STANDARD_ENV_TRANSFORMS = Compose(
@@ -72,8 +74,10 @@ class EnvironmentFactory(BaseEnvironmentFactory):
         Returns:
             SMAC environment
         """
+        # TODO Adapt to generate real environments NOT DUMMY
         if config.get("use_dummy", False):
             env = create_dummy_parallel_pz_env()
+            # env = create_parallel_pz_env(config)
             use_mask = False
             env = PettingZooWrapper(
                 env=env,
@@ -85,11 +89,7 @@ class EnvironmentFactory(BaseEnvironmentFactory):
             env = self._apply_transforms(env)
             return env
         else:
-            specs = {
-                "distributed_config": config.get("distributed_config"),
-                "map_name": config.get("map_name"),
-            }
-            env = create_env(specs)
+            env = create_parallel_pz_env(OmegaConf.to_container(config, resolve=True))
 
         # Apply transformations if specified
         if config.get("transforms"):
@@ -164,22 +164,30 @@ def get_dummy_env_from_factory():
     return env
 
 
-if __name__ == "__main__":
+@hydra.main(version_base=None, config_path="../../../conf", config_name="dummy_config")
+def test(config: DictConfig):
     env_factory = EnvironmentFactory(env_type="smac")
-    config = {
-        "map_name": "10gen_terran",
-        "distributed_config": {
-            "n_units": 5,
-            "n_enemies": 5,
-            # Additional configuration...
-        },
-        "use_dummy": True,
-        "num_parallel_envs": 1,
-        "transforms": [],
-    }
-
     env = env_factory.create(config)
-    print(" === Environment created:", env, "===")
+    print(" === Environment created :", env, "===")
+
+
+if __name__ == "__main__":
+    test()
+    # env_factory = EnvironmentFactory(env_type="smac")
+    # config = {
+    #     "map_name": "10gen_terran",
+    #     "distributed_config": {
+    #         "n_units": 5,
+    #         "n_enemies": 5,
+    #         # Additional configuration...
+    #     },
+    #     "use_dummy": True,
+    #     "num_parallel_envs": 1,
+    #     "transforms": [],
+    # }
+
+    # env = env_factory.create(config)
+    # print(" === Environment created:", env, "===")
     # print(" === Start: Apply Transforms === ")
     # env = env_factory._apply_transforms(env)
 

@@ -2,7 +2,7 @@
 # This file combines all component configs using Hydra's defaults system
 
 defaults:
-  - environment
+  - env: dummy
   - policy
   - loss
   - optimizer

@@ -1,24 +1,7 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from os import replace
-
-from smacv2.env import StarCraft2Env
-import numpy as np
-from absl import logging
-import time
-
 from smacv2.env.starcraft2.wrapper import StarCraftCapabilityEnvWrapper
 
 
-
-
-
-
-
 def create_env(specs):
-
-    
     env = StarCraftCapabilityEnvWrapper(
         capability_config=specs["distributed_config"],
         map_name=specs["map_name"],
@@ -30,7 +13,6 @@ def create_env(specs):
     )
 
     return env
-
 
 
 def create_dummy_env():
@@ -55,16 +37,12 @@ def create_dummy_env():
     specs = {
         "distributed_config": distribution_config,
         "map_name": "10gen_terran",
-        
     }
 
     return create_env(specs)
 
 
-
 if __name__ == "__main__":
-    env = create_dummy_parallel_pz_env()
+    env = create_dummy_env()
     obs = env.reset()
     print("Initial observation:", obs)
-
-

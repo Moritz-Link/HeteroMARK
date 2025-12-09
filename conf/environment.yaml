@@ -1,5 +1,0 @@
-# Environment configuration
-# Controls environment setup and parallelization
-
-use_dummy: true  # Use dummy SMAC environment for testing
-num_parallel_envs: 1  # Number of parallel environments for data collection

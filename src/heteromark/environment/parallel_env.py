@@ -8,7 +8,7 @@ from torchrl.envs.libs.gym import (
     register_gym_spec_conversion,
 )
 
-from heteromark.environment.smac import create_dummy_env
+from heteromark.environment.smac import create_dummy_env, create_env
 
 
 # Register conversion for gym.spaces.Discrete
@@ -181,7 +181,6 @@ class smac_parallel_env(ParallelEnv):
         all_infos = {agent: {} for agent in self.agents}
         # all_infos.update(smac_info)
 
-        # TODO: Endet immer, sobald einer der Agenten truncated?
         all_terminations = {agent: terminated for agent in self.agents}
         all_truncation = self._all_dones(done)
         all_rewards = self._all_rewards(self._reward)
@@ -212,6 +211,12 @@ def create_dummy_parallel_pz_env():
     # env = parallel_env(500, specs["max_cycles"])
     env = smac_parallel_env(basic_env, specs["max_cycles"])
     print("=== Created Dummy ENv ===")
+    return env
+
+
+def create_parallel_pz_env(config):
+    basic_env = create_env(config["env"]["smac_specs"])
+    env = smac_parallel_env(basic_env, config["env"]["parallel_env"]["max_cycles"])
     return env
 
 
