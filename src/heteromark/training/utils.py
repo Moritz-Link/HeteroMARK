@@ -89,6 +89,7 @@ def filter_tensordict_by_agent(
         if isinstance(tensordict[key], TensorDict)
         and key != "next"
         and key != "collector"
+        and key != "critic"
     ]
 
     # Copy non-agent-group top-level keys
@@ -166,6 +167,7 @@ def filter_tensordict_by_agent(
         "reward",
         "state_value",
         "value_target",
+        "critic",
     ]:
         if key in filtered_dict:
             filtered_dict[key] = filtered_dict[key][non_truncated_mask]

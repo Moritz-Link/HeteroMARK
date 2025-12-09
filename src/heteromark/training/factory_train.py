@@ -12,6 +12,7 @@ from omegaconf import DictConfig
 from tqdm import tqdm
 
 from heteromark.algorithm.happo_algorithm import HappoAlgorithm
+from heteromark.loss import update_critic
 from heteromark.modules import (
     CollectorFactory,
     EnvironmentFactory,
@@ -236,6 +237,9 @@ def train(components: dict[str, Any], config: DictConfig) -> dict[str, Any]:
                     # Optimizer step
                     group_optimizer.step()
                     group_optimizer.zero_grad()
+                    update_critic(
+                        optimizers, loss_modules, batch, frames, None
+                    )  # TODO: Logger
 
                 # Update HAPPO factor after training this agent
 

@@ -48,7 +48,7 @@ class LossValueEstimationModule(nn.Module):
         return loss_value
 
 
-def update_critic(optimizer, loss_module, tensordict_data, step, logger):
+def update_critic(optimizer, loss_module, tensordict_data, step, logger=None):
     critic_optimizer = optimizer["critic"]
     critic_loss_module = loss_module["critic"]
     critic_optimizer.zero_grad()
@@ -56,7 +56,8 @@ def update_critic(optimizer, loss_module, tensordict_data, step, logger):
     critic_loss = critic_loss_module(tensordict_data)
     critic_loss.backward()
     critic_optimizer.step()
-    logger.log_critic_metrics(
-        critic_loss=critic_loss.item(),
-        step=step,
-    )
+    if logger is not None:
+        logger.log_critic_metrics(
+            critic_loss=critic_loss.item(),
+            step=step,
+        )
