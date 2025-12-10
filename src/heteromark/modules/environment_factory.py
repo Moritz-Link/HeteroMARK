@@ -166,13 +166,18 @@ def get_dummy_env_from_factory():
 
 @hydra.main(version_base=None, config_path="../../../conf", config_name="dummy_config")
 def test(config: DictConfig):
-    env_factory = EnvironmentFactory(env_type="smac")
-    env = env_factory.create(config)
+    env_factory = EnvironmentFactory(env_type=config.env.env_type)
+    env = env_factory.create(config.env)
+    env = env_factory._apply_transforms(env)
+    print(env.group_map)
     print(" === Environment created :", env, "===")
+    return env
 
 
 if __name__ == "__main__":
-    test()
+    env = test()
+    # print(env.group_map)
+
     # env_factory = EnvironmentFactory(env_type="smac")
     # config = {
     #     "map_name": "10gen_terran",
@@ -192,3 +197,4 @@ if __name__ == "__main__":
     # env = env_factory._apply_transforms(env)
 
     # print(" === Finished Applying Transforms === ")
+    # print(env.group_map)

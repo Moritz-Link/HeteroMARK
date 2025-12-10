@@ -105,11 +105,30 @@ def get_dummy_replaybuffer_from_factory(env):
     return rbuffer
 
 
-if __name__ == "__main__":
-    from heteromark.modules.environment_factory import get_dummy_env_from_factory
+import hydra
+from omegaconf import DictConfig
 
-    env = get_dummy_env_from_factory()
-    rbuffer_factory = ReplayBufferFactory("tensor")
-    config = {}
-    rbuffer = rbuffer_factory.create(config, env)
+
+@hydra.main(version_base=None, config_path="../../../conf", config_name="dummy_config")
+def test(config: DictConfig):
+    from heteromark.modules.environment_factory import EnvironmentFactory
+
+    env_factory = EnvironmentFactory(env_type=config.env.env_type)
+    env = env_factory.create(config.env)
+    env = env_factory._apply_transforms(env)
+    print(" === Environment created :", env, "===")
+
+    rbuffer_factory = ReplayBufferFactory(config.components.replay_buffer.buffer_type)
+    rbuffer = rbuffer_factory.create(config.components.replay_buffer, env)
     print("=== Replay Buffers ===")
+
+
+if __name__ == "__main__":
+    test()
+    # from heteromark.modules.environment_factory import get_dummy_env_from_factory
+
+    # env = get_dummy_env_from_factory()
+    # rbuffer_factory = ReplayBufferFactory("tensor")
+    # config = {}
+    # rbuffer = rbuffer_factory.create(config, env)
+    # print("=== Replay Buffers ===")

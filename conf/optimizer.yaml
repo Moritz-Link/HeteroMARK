@@ -1,6 +1,0 @@
-# Optimizer configuration
-# Parameters for gradient-based optimization
-
-learning_rate: 3e-4  # Learning rate for all optimizers
-weight_decay: 0.0  # L2 regularization coefficient
-eps: 1e-8  # Epsilon for numerical stability (Adam)

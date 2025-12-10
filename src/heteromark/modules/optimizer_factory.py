@@ -138,16 +138,53 @@ def get_dummy_loss_from_factory(loss_modules):
     return optimizer
 
 
-if __name__ == "__main__":
-    from heteromark.modules.environment_factory import get_dummy_env_from_factory
-    from heteromark.modules.loss_factory import get_dummy_loss_modules_from_factory
-    from heteromark.modules.policy_factory import get_dummy_policy_from_factory
+import hydra
+from omegaconf import DictConfig
 
-    env = get_dummy_env_from_factory()
-    policy_modules, value_modules = get_dummy_policy_from_factory(env)
-    loss_modules, _ = get_dummy_loss_modules_from_factory(policy_modules, value_modules)
 
-    optmizer_factory = OptimizerFactory("adam")
-    config = {}
-    optimizer = optmizer_factory.create(loss_modules=loss_modules, config=config)
+@hydra.main(version_base=None, config_path="../../../conf", config_name="dummy_config")
+def test(config: DictConfig):
+    from heteromark.modules.environment_factory import EnvironmentFactory
+    from heteromark.modules.loss_factory import LossFactory
+    from heteromark.modules.policy_factory import PolicyFactory
+
+    env_factory = EnvironmentFactory(env_type=config.env.env_type)
+    env = env_factory.create(config.env)
+    env = env_factory._apply_transforms(env)
+    print(" === Environment created :", env, "===")
+
+    policy_factory = PolicyFactory(policy_type=config.components.policy.policy_type)
+    policy_modules, value_modules = policy_factory.create(config.components.policy, env)
+
+    print(" === Policy and Value modules created ===")
+    loss_factory = LossFactory(config.components.loss.loss_type)
+
+    loss_modules, advantage_modules = loss_factory.create(
+        config=config.components.loss,
+        policy_modules=policy_modules,
+        value_modules=value_modules,
+    )
+    print("=== Loss Modules ===")
+
+    optmizer_factory = OptimizerFactory(config.components.optimizer.optimizer_type)
+    optimizer = optmizer_factory.create(
+        loss_modules=loss_modules, config=config.components.optimizer
+    )
     print("=== Optimizers ===")
+
+
+if __name__ == "__main__":
+    test()
+
+    # from heteromark.modules.environment_factory import get_dummy_env_from_factory
+    # from heteromark.modules.loss_factory import get_dummy_loss_modules_from_factory
+    # from heteromark.modules.policy_factory import get_dummy_policy_from_factory
+
+    # env = get_dummy_env_from_factory()
+    # policy_modules, value_modules = get_dummy_policy_from_factory(env)
+    # loss_modules, _ = get_dummy_loss_modules_from_factory(policy_modules, value_modules)
+
+    # optmizer_factory = OptimizerFactory("adam")
+    # config = {}
+    # optimizer = optmizer_factory.create(loss_modules=loss_modules, config=config)
+    # print("=== Optimizers ===")

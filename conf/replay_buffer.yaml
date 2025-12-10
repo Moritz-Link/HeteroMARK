@@ -1,5 +1,0 @@
-# Replay buffer configuration
-# Parameters for experience replay storage
-
-batch_size: 32  # Mini-batch size for training
-buffer_size: 2000  # Maximum buffer capacity per agent group

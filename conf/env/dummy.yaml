@@ -1,5 +1,6 @@
 # @package env
-use_dummy: false  # Use dummy SMAC environment for testing
+env_type: smac  # Environment type: smac, custom
+use_dummy: True  # Use dummy SMAC environment for testing
 num_parallel_envs: 1  # Number of parallel environments for data collection
 smac_specs:
     distributed_config:
@@ -19,12 +20,12 @@ smac_specs:
           - 0.1
         observe: True
       start_positions: 
-          dist_type: "surrounded_and_reflect"
+          dist_type: surrounded_and_reflect
           p: 0.5
           n_enemies: 5
           map_x: 32
           map_y: 32
-    map_name: "10gen_terran"
+    map_name: 10gen_terran
 
 parallel_env:
   max_cycles: 500  # Maximum number of cycles per episode

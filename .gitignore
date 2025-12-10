@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.td/
+outputs/
 # pytest cache
 .pytest_cache/
 src/heteromark/environment/__pycache__/parallel_env.cpython-312.pyc

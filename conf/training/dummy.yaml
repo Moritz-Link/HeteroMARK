@@ -1,5 +1,4 @@
-# Training loop configuration
-# High-level training parameters
+# @package training
 
 total_frames: 10000  # Total frames to train on
 num_epochs: 4  # Number of epochs to train per batch

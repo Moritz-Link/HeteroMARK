@@ -215,8 +215,8 @@ def create_dummy_parallel_pz_env():
 
 
 def create_parallel_pz_env(config):
-    basic_env = create_env(config["env"]["smac_specs"])
-    env = smac_parallel_env(basic_env, config["env"]["parallel_env"]["max_cycles"])
+    basic_env = create_env(config["smac_specs"])
+    env = smac_parallel_env(basic_env, config["parallel_env"]["max_cycles"])
     return env
 
 

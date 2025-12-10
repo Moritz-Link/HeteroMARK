@@ -1,0 +1,36 @@
+# @package components
+
+collector:
+  collector_type: sync  # Collector type: sync, multi_sync
+  frames_per_batch: 128  # Number of frames collected per batch
+  total_frames: 10000  # Total frames to collect (can override training.total_frames)
+  device: cpu  # Device for collector (cpu, cuda)
+  
+
+loss:
+  loss_type: ppo  # Loss function: ppo, happo
+  clip_epsilon: 0.2  # PPO clipping parameter
+  entropy_coeff: 0.01  # Entropy bonus coefficient for exploration
+  critic_coeff: 1.0  # Critic loss weight
+  gamma: 0.99  # Discount factor for rewards
+  lmbda: 0.95  # GAE lambda parameter for advantage estimation
+  normalize_advantage: true  # Whether to normalize advantages
+
+optimizer:
+  optimizer_type: adam  # Optimizer: adam, sgd, rmsprop
+  learning_rate: 3e-4  # Learning rate for all optimizers
+  weight_decay: 0.0  # L2 regularization coefficient
+  eps: 1e-8  # Epsilon for numerical stability (Adam)
+  
+
+policy:
+  policy_type: mlp  # Policy architecture: mlp (extensible)
+  hidden_sizes: [64, 64]  # Hidden layer sizes for policy and value networks
+  activation: Tanh  # Activation function (Tanh, ReLU, etc.)
+  device: cpu  # Device for policy networks (cpu, cuda)
+
+
+replay_buffer:
+  buffer_type: tensor  # Replay buffer type: tensor, memmap
+  batch_size: 32  # Mini-batch size for training
+  buffer_size: 2000  # Maximum buffer capacity per agent group
