@@ -115,7 +115,7 @@ def test(config: DictConfig):
 
     env_factory = EnvironmentFactory(env_type=config.env.env_type)
     env = env_factory.create(config.env)
-    env = env_factory._apply_transforms(env)
+    # env = env_factory._apply_transforms(env)
     print(" === Environment created :", env, "===")
 
     rbuffer_factory = ReplayBufferFactory(config.components.replay_buffer.buffer_type)

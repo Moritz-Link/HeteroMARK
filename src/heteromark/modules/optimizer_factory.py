@@ -150,7 +150,7 @@ def test(config: DictConfig):
 
     env_factory = EnvironmentFactory(env_type=config.env.env_type)
     env = env_factory.create(config.env)
-    env = env_factory._apply_transforms(env)
+    # env = env_factory._apply_transforms(env)
     print(" === Environment created :", env, "===")
 
     policy_factory = PolicyFactory(policy_type=config.components.policy.policy_type)

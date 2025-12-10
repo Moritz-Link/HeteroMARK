@@ -77,23 +77,17 @@ class EnvironmentFactory(BaseEnvironmentFactory):
         # TODO Adapt to generate real environments NOT DUMMY
         if config.get("use_dummy", False):
             env = create_dummy_parallel_pz_env()
-            # env = create_parallel_pz_env(config)
-            use_mask = False
-            env = PettingZooWrapper(
-                env=env,
-                return_state=False,
-                group_map=None,
-                use_mask=use_mask,
-                done_on_any=False,
-            )
-            env = self._apply_transforms(env)
-            return env
         else:
             env = create_parallel_pz_env(OmegaConf.to_container(config, resolve=True))
-
-        # Apply transformations if specified
-        if config.get("transforms"):
-            env = self._apply_transforms(env, config["transforms"])
+        use_mask = False
+        env = PettingZooWrapper(
+            env=env,
+            return_state=False,
+            group_map=None,
+            use_mask=use_mask,
+            done_on_any=False,
+        )
+        env = self._apply_transforms(env)
 
         # Wrap in parallel env if specified
         if config.get("num_parallel_envs", 1) > 1:
@@ -168,7 +162,7 @@ def get_dummy_env_from_factory():
 def test(config: DictConfig):
     env_factory = EnvironmentFactory(env_type=config.env.env_type)
     env = env_factory.create(config.env)
-    env = env_factory._apply_transforms(env)
+    # env = env_factory._apply_transforms(env)
     print(env.group_map)
     print(" === Environment created :", env, "===")
     return env

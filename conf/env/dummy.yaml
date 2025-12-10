@@ -1,6 +1,6 @@
 # @package env
 env_type: smac  # Environment type: smac, custom
-use_dummy: True  # Use dummy SMAC environment for testing
+use_dummy: False  # Use dummy SMAC environment for testing
 num_parallel_envs: 1  # Number of parallel environments for data collection
 smac_specs:
     distributed_config:
