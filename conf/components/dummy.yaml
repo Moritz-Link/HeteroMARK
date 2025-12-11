@@ -8,7 +8,7 @@ collector:
   
 
 loss:
-  loss_type: ppo  # Loss function: ppo, happo
+  loss_type: happo  # Loss function: ppo, happo
   clip_epsilon: 0.2  # PPO clipping parameter
   entropy_coeff: 0.01  # Entropy bonus coefficient for exploration
   critic_coeff: 1.0  # Critic loss weight

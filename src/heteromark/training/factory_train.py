@@ -34,23 +34,24 @@ class ComponentFactory:
         Args:
             config: Configuration object containing all parameters
         """
+
         self.config = config
         self.device = torch.device(config.get("device", "cpu"))
 
         # Initialize factories
-        self.env_factory = EnvironmentFactory(env_type=config.get("env_type", "smac"))
+        self.env_factory = EnvironmentFactory(env_type=config.env.env_type)
         self.policy_factory = PolicyFactory(
-            policy_type=config.get("policy_type", "mlp")
+            policy_type=config.components.policy.policy_type
         )
-        self.loss_factory = LossFactory(loss_type=config.get("loss_type", "ppo"))
+        self.loss_factory = LossFactory(loss_type=config.components.loss.loss_type)
         self.optimizer_factory = OptimizerFactory(
-            optimizer_type=config.get("optimizer_type", "adam")
+            optimizer_type=config.components.optimizer.optimizer_type
         )
         self.collector_factory = CollectorFactory(
-            collector_type=config.get("collector_type", "sync")
+            collector_type=config.components.collector.collector_type
         )
         self.buffer_factory = ReplayBufferFactory(
-            buffer_type=config.get("buffer_type", "tensor")
+            buffer_type=config.components.replay_buffer.buffer_type
         )
 
     def create_components(self) -> dict[str, Any]:
@@ -59,20 +60,21 @@ class ComponentFactory:
         Returns:
             Dictionary containing all initialized components
         """
+        # TODO: Alle der Config anpassen
         components = {}
 
         # Create environment
-        components["env"] = self.env_factory.create(self.config.environment)
+        components["env"] = self.env_factory.create(self.config.env)
 
         # Create policy and value networks
         components["policy_modules"], components["value_modules"] = (
-            self.policy_factory.create(self.config.policy, components["env"])
+            self.policy_factory.create(self.config.components.policy, components["env"])
         )
 
         # Create loss modules and advantage estimators
         components["loss_modules"], components["advantage_modules"] = (
             self.loss_factory.create(
-                self.config.loss,
+                self.config.components.loss,
                 components["policy_modules"],
                 components["value_modules"],
             )
@@ -80,29 +82,30 @@ class ComponentFactory:
 
         # Create optimizers
         components["optimizers"] = self.optimizer_factory.create(
-            self.config.optimizer, components["loss_modules"]
+            self.config.components.optimizer, components["loss_modules"]
         )
 
         # Create replay buffers
-        buffer_config = {
-            **self.config.replay_buffer,
-            "agent_groups": list(components["policy_modules"].keys()),
-        }
+        # buffer_config = {
+        #     **self.config.components.replay_buffer,
+        #     "agent_groups": list(components["policy_modules"].keys()),
+        # }
         components["replay_buffers"] = self.buffer_factory.create(
-            buffer_config, components["env"]
+            self.config.components.replay_buffer, components["env"]
         )
 
         # Create data collector
         components["collector"] = self.collector_factory.create(
-            self.config.collector, components["env"], components["policy_modules"]
+            self.config.components.collector,
+            components["env"],
+            components["policy_modules"],
         )
 
         # Initialize HAPPO algorithm if using HAPPO loss
-        if self.config.get("loss_type") == "happo":
+        if self.config.components.loss.loss_type == "happo":
             components["happo_algorithm"] = HappoAlgorithm(
                 agent_groups=components["env"].group_map,
                 policy_modules=components["policy_modules"],
-                sample_log_prob_key="action_log_prob",
                 device=self.device,
             )
         else:
@@ -169,7 +172,7 @@ def train(components: dict[str, Any], config: DictConfig) -> dict[str, Any]:
     for _, tensordict_data in enumerate(collector):
         batch_frames = tensordict_data.numel()
 
-        ### ADapt the reward
+        ### ADapt the reward #TODO THe Value function -> Critic doesnt make sense at the moment
         tensordict_data["reward"] = tensordict_data["reward"][:, 0]
         tensordict_data[("next", "reward")] = tensordict_data[("next", "reward")][:, 0]
 
