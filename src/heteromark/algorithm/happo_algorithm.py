@@ -52,6 +52,8 @@ class HappoAlgorithm:
             functional (bool, optional): Whether to use functional mode for networks. Defaults to True.
         """
         self.agent_groups = agent_groups
+        self.agents = [agent for group in agent_groups.values() for agent in group]
+        self.agent_update_type = "agent-wise"
         self.policy_modules = policy_modules
         self.sample_log_prob_key = sample_log_prob_key
         self.action_aggregation = action_aggregation
@@ -62,6 +64,7 @@ class HappoAlgorithm:
         # Extract agent group names
         self.group_names = list(agent_groups.keys())
         self.num_groups = len(self.group_names)
+        self.num_agents = len(self.agents)
 
         # Initialize factor as None (will be set based on tensordict shape)
         self.factor = None
@@ -80,11 +83,15 @@ class HappoAlgorithm:
         """
         if self.fixed_order:
             self.current_agent_order = list(range(self.num_groups))
+            return [self.group_names[i] for i in self.current_agent_order]
         else:
-            self.current_agent_order = list(torch.randperm(self.num_groups).numpy())
-
+            if self.agent_update_type == "agent-wise":
+                self.current_agent_order = list(torch.randperm(self.num_agents).numpy())
+                return [self.agents[i] for i in self.current_agent_order]
+            else:
+                self.current_agent_order = list(torch.randperm(self.num_groups).numpy())
+                return [self.group_names[i] for i in self.current_agent_order]
         # Return actual agent group names in the determined order
-        return [self.group_names[i] for i in self.current_agent_order]
 
     def reset_factor(self, tensordict: TensorDictBase) -> torch.Tensor:
         """Reset the factor tensor to ones based on tensordict shape.
@@ -279,7 +286,7 @@ class HappoAlgorithm:
             raise ValueError(
                 f"Agent group '{agent_group}' not found in policy_modules."
             )
-
+        # TODO: Thinking about how to update only factors with alive agent information!?
         # Get the policy module for this agent
         actor_network = self.policy_modules[agent_group]
 
@@ -333,7 +340,7 @@ class HappoAlgorithm:
 
         return self.factor
 
-    def get_factor_for_agent(self, agent_group: str) -> torch.Tensor:
+    def get_factor_for_agent(self, agent_group: str = None) -> torch.Tensor:
         """Get the factor tensor for a specific agent group.
 
         This returns the current factor that should be used when training the specified agent.

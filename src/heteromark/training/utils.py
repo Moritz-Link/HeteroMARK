@@ -180,6 +180,13 @@ def filter_tensordict_by_agent(
     return filtered_tensordict
 
 
+def set_factor_of_all_agents(tensordict: TensorDict, env, factor: torch.Tensor):
+    """Set the factor value for all agents in the tensordict."""
+    for agent_group, agents in env.group_map.items():
+        num_agents_in_group = len(agents)
+        tensordict[agent_group]["factor"] = factor.repeat(1, num_agents_in_group, 1)
+
+
 def log_info(config):
     """Log configuration information and training start message.
 

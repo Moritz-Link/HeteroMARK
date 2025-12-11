@@ -136,7 +136,12 @@ def process_batch(tensordict_data: Any, agent_group: str, device: torch.device) 
     return group_batch.reshape(-1)
 
 
-from heteromark.training.utils import filter_tensordict_by_agent, get_agent_group
+from heteromark.training.utils import (
+    filter_tensordict_by_agent,
+    get_agent_group,
+    get_agent_index,
+    set_factor_of_all_agents,
+)
 
 
 def train(components: dict[str, Any], config: DictConfig) -> dict[str, Any]:
@@ -186,10 +191,14 @@ def train(components: dict[str, Any], config: DictConfig) -> dict[str, Any]:
         # HAPPO-specific: Reset factor for new batch
         if happo_algorithm:
             happo_algorithm.reset_factor(tensordict_data)
+            # TODO: set all factor values at the beginning
+            set_factor_of_all_agents(
+                tensordict_data, env, happo_algorithm.get_factor(tensordict_data)
+            )
             agent_order = happo_algorithm.get_agent_order()
         else:
             agent_order = env.agents
-
+        print("Agent order:", agent_order)
         # Training epochs
 
         for epoch_idx in range(num_epochs):
@@ -205,6 +214,11 @@ def train(components: dict[str, Any], config: DictConfig) -> dict[str, Any]:
             for agent in agent_order:
                 agent_group = get_agent_group(agent)
                 # Process batch for this agent group
+                if happo_algorithm:
+                    current_factor = happo_algorithm.get_factor_for_agent()
+                    tensordict_data[agent_group]["factor"][
+                        :, get_agent_index(agent) : get_agent_index(agent) + 1
+                    ] = current_factor
                 filtered_td = filter_tensordict_by_agent(
                     tensordict_data, agent_name=agent, agent_group=agent_group
                 )
