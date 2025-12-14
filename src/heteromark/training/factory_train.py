@@ -5,6 +5,7 @@ This script demonstrates a clean, modular approach to training multi-agent
 reinforcement learning systems using the factory design pattern.
 """
 
+from functools import partial
 from typing import Any
 
 import hydra
@@ -12,7 +13,7 @@ import torch
 from omegaconf import DictConfig
 from tqdm import tqdm
 
-from heteromark.algorithm.happo_algorithm import HappoAlgorithm
+from heteromark.algorithm import algorithm_factory
 from heteromark.loss import update_critic
 from heteromark.modules import (
     CollectorFactory,
@@ -43,7 +44,7 @@ class ComponentFactory:
         self.policy_factory = PolicyFactory(
             policy_type=config.components.policy.policy_type
         )
-        self.loss_factory = LossFactory(loss_type=config.components.loss.loss_type)
+        self.loss_factory = LossFactory(loss_type=config.algorithm.loss.loss_type)
         self.optimizer_factory = OptimizerFactory(
             optimizer_type=config.components.optimizer.optimizer_type
         )
@@ -53,6 +54,11 @@ class ComponentFactory:
         self.buffer_factory = ReplayBufferFactory(
             buffer_type=config.components.replay_buffer.buffer_type
         )
+
+        self.algorithm_factory = partial(
+            algorithm_factory,
+            name=config.algorithm.loss.loss_type,
+        )  # Placeholder for future algorithm factory
 
     def create_components(self) -> dict[str, Any]:
         """Create all training components using factories.
@@ -74,7 +80,7 @@ class ComponentFactory:
         # Create loss modules and advantage estimators
         components["loss_modules"], components["advantage_modules"] = (
             self.loss_factory.create(
-                self.config.components.loss,
+                self.config.algorithm.loss,
                 components["policy_modules"],
                 components["value_modules"],
             )
@@ -100,17 +106,23 @@ class ComponentFactory:
             components["env"],
             components["policy_modules"],
         )
-
+        kwargs = {
+            "agent_groups": components["env"].group_map,
+            "policy_modules": components["policy_modules"],
+            "sample_log_prob_key": "log_prob",
+            "device": self.device,
+        }
+        components["algorithm"] = self.algorithm_factory(**kwargs)
         # Initialize HAPPO algorithm if using HAPPO loss
-        if self.config.components.loss.loss_type == "happo":
-            components["happo_algorithm"] = HappoAlgorithm(
-                agent_groups=components["env"].group_map,
-                policy_modules=components["policy_modules"],
-                sample_log_prob_key="log_prob",
-                device=self.device,
-            )
-        else:
-            components["happo_algorithm"] = None
+        # if self.config.components.loss.loss_type == "happo":
+        #     components["happo_algorithm"] = HappoAlgorithm(
+        #         agent_groups=components["env"].group_map,
+        #         policy_modules=components["policy_modules"],
+        #         sample_log_prob_key="log_prob",
+        #         device=self.device,
+        #     )
+        # else:
+        #     components["happo_algorithm"] = None
 
         components["device"] = self.device
 
@@ -159,7 +171,7 @@ def train(components: dict[str, Any], config: DictConfig) -> dict[str, Any]:
     optimizers = components["optimizers"]
     replay_buffers = components["replay_buffers"]
     collector = components["collector"]
-    happo_algorithm = components["happo_algorithm"]
+    algorithm = components["algorithm"]
     device = components["device"]
     advantage_module = components["advantage_modules"]
 
@@ -187,16 +199,8 @@ def train(components: dict[str, Any], config: DictConfig) -> dict[str, Any]:
         ][:, 0]
 
         # HAPPO-specific: Reset factor for new batch
-        if happo_algorithm:
-            # happo_algorithm.reset_factor(tensordict_data)
-            # TODO: set all factor values at the beginning
 
-            # set_factor_of_all_agents(
-            #     tensordict_data, env, happo_algorithm.get_factor(tensordict_data)
-            # )
-            agent_order = happo_algorithm.get_agent_order()
-        else:
-            agent_order = env.agents
+        agent_order = algorithm.get_agent_order()
         # print("Agent order:", agent_order)
         # Training epochs
 
@@ -204,26 +208,11 @@ def train(components: dict[str, Any], config: DictConfig) -> dict[str, Any]:
             # Compute advantages
             with torch.no_grad():
                 advantage_module(tensordict_data)
-            if happo_algorithm:
-                happo_algorithm.set_adv_as_factor(tensordict_data)
-                # set_factor_to_all(
-                #     tensordict_data, happo_algorithm.get_factor(tensordict_data)
-                # )
-            #     # Add HAPPO factor if using HAPPO
-            # if happo_algorithm:
-            #     factor = happo_algorithm.get_factor_for_agent(agent)
-            #     filtered_td.set((agent, "factor"), factor)
-            # Iterate over agent groups
+
+            algorithm.prepare_rollout(tensordict_data)
+            # algorithm.set_adv_as_factor(tensordict_data)
 
             for agent_group in agent_order:
-                # agent_group = get_agent_group(agent)
-                # Process batch for this agent group
-                # if happo_algorithm:
-                #     current_factor = happo_algorithm.get_factor_for_agent()
-                #     tensordict_data[agent_group]["factor"][
-                #         :, get_agent_index(agent) : get_agent_index(agent) + 1
-                #     ] = current_factor
-
                 group_buffer = replay_buffers[agent_group]
                 group_loss_module = loss_modules[agent_group]
                 group_optimizer = optimizers[agent_group]
@@ -232,13 +221,7 @@ def train(components: dict[str, Any], config: DictConfig) -> dict[str, Any]:
                     filtered_td = filter_tensordict_by_agent(
                         tensordict_data, agent_name=agent, agent_group=agent_group
                     )
-                    filtered_td[(agent_group, "advantage")] = (
-                        filtered_td["advantage"].clone().unsqueeze(-1)
-                    )
-                    filtered_td[(agent_group, "factor")] = (
-                        filtered_td["factor"].clone().unsqueeze(-1)
-                    )
-                    # group_batch = process_batch(filtered_td, agent_group, device)
+                    algorithm.pre_update(filtered_td, agent_group)
 
                     group_buffer.empty()
 
@@ -272,12 +255,7 @@ def train(components: dict[str, Any], config: DictConfig) -> dict[str, Any]:
 
                 # Update HAPPO factor after training this agent group
                 # For each Agent
-                if happo_algorithm:
-                    happo_algorithm.update_factor(tensordict_data, agent_group)
-                    # TODO Update the factor in the tensordict
-                    tensordict_data["factor"] = happo_algorithm.get_factor(
-                        tensordict_data
-                    )
+                algorithm.post_update(tensordict_data, agent_group)
 
         frames += batch_frames
         pbar.update(batch_frames)

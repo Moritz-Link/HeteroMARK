@@ -5,6 +5,7 @@ defaults:
   - env: dummy
   - components: dummy
   - training: dummy
+  - algorithm: dummy
   - _self_
 
 # Top-level configuration

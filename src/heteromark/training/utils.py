@@ -210,7 +210,7 @@ def log_info(config):
     print(f"  Device: {config.components.collector.device}")
     print(f"  Environment Type: {config.env.env_type}")
     print(f"  Policy Type: {config.components.policy.policy_type}")
-    print(f"  Loss Type: {config.components.loss.loss_type}")
+    print(f"  Loss Type: {config.algorithm.loss.loss_type}")
     print(f"  Optimizer Type: {config.components.optimizer.optimizer_type}")
     print(f"  Collector Type: {config.components.collector.collector_type}")
     print(f"  Buffer Type: {config.components.replay_buffer.buffer_type}")
@@ -228,9 +228,9 @@ def log_info(config):
             print(f"  {key}: {value}")
 
     # Loss settings
-    if hasattr(config.components, "loss"):
+    if hasattr(config.algorithm, "loss"):
         print("\nLoss Settings:")
-        for key, value in config.components.loss.items():
+        for key, value in config.algorithm.loss.items():
             print(f"  {key}: {value}")
 
     # Optimizer settings

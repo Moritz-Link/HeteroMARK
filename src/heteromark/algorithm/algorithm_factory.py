@@ -1,7 +1,9 @@
 from heteromark.algorithm.happo_algorithm import HappoAlgorithm
+from heteromark.algorithm.ppo_algorithm import PpoAlgorithm
 
 ALGORITHMS = {
     "happo": HappoAlgorithm,
+    "ppo": PpoAlgorithm,
 }
 
 

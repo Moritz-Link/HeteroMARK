@@ -6,16 +6,6 @@ collector:
   total_frames: 10000  # Total frames to collect (can override training.total_frames)
   device: cpu  # Device for collector (cpu, cuda)
   
-
-loss:
-  loss_type: happo  # Loss function: ppo, happo
-  clip_epsilon: 0.2  # PPO clipping parameter
-  entropy_coeff: 0.01  # Entropy bonus coefficient for exploration
-  critic_coeff: 1.0  # Critic loss weight
-  gamma: 0.99  # Discount factor for rewards
-  lmbda: 0.95  # GAE lambda parameter for advantage estimation
-  normalize_advantage: true  # Whether to normalize advantages
-
 optimizer:
   optimizer_type: adam  # Optimizer: adam, sgd, rmsprop
   learning_rate: 3e-4  # Learning rate for all optimizers
