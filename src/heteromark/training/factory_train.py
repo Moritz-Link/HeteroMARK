@@ -14,10 +14,11 @@ from omegaconf import DictConfig
 from tqdm import tqdm
 
 from heteromark.algorithm import algorithm_factory
-from heteromark.loss import update_critic
+from heteromark.loss import update_actor, update_critic
 from heteromark.modules import (
     CollectorFactory,
     EnvironmentFactory,
+    LoggerFactory,
     LossFactory,
     OptimizerFactory,
     PolicyFactory,
@@ -59,6 +60,8 @@ class ComponentFactory:
             algorithm_factory,
             name=config.algorithm.loss.loss_type,
         )  # Placeholder for future algorithm factory
+
+        self.logger_factory = LoggerFactory(config.components.logger)
 
     def create_components(self) -> dict[str, Any]:
         """Create all training components using factories.
@@ -125,6 +128,7 @@ class ComponentFactory:
         #     components["happo_algorithm"] = None
 
         components["device"] = self.device
+        components["logger"] = self.logger_factory.create(log_dir=self.config.log_dir)
 
         return components
 
@@ -174,6 +178,7 @@ def train(components: dict[str, Any], config: DictConfig) -> dict[str, Any]:
     algorithm = components["algorithm"]
     device = components["device"]
     advantage_module = components["advantage_modules"]
+    logger = components["logger"]
 
     # Training parameters
     total_frames = config.training.total_frames
@@ -230,25 +235,18 @@ def train(components: dict[str, Any], config: DictConfig) -> dict[str, Any]:
 
                     # Training on mini-batches
                     for batch in group_buffer:
-                        batch = batch.to(device)
-
-                        # Compute loss
-                        loss_vals = group_loss_module(batch)
-                        total_loss = (
-                            loss_vals["loss_objective"]
-                            # + loss_vals["loss_critic"]
-                            + loss_vals["loss_entropy"]
+                        # Update actor network
+                        update_actor(
+                            batch=batch,
+                            optimizer=group_optimizer,
+                            loss_module=group_loss_module,
+                            device=device,
+                            max_grad_norm=max_grad_norm,
+                            step=frames,
+                            logger=None,  # TODO: Logger
                         )
 
-                        # Backward pass
-                        total_loss.backward()
-                        torch.nn.utils.clip_grad_norm_(
-                            group_loss_module.parameters(), max_grad_norm
-                        )
-
-                        # Optimizer step
-                        group_optimizer.step()
-                        group_optimizer.zero_grad()
+                        # Update critic network
                         update_critic(
                             optimizers, loss_modules, batch, frames, None
                         )  # TODO: Logger
@@ -257,7 +255,9 @@ def train(components: dict[str, Any], config: DictConfig) -> dict[str, Any]:
                 # For each Agent
                 algorithm.post_update(tensordict_data, agent_group)
 
+        logger["training"].log_steps(step=frames, data=tensordict_data)
         frames += batch_frames
+
         pbar.update(batch_frames)
 
         # Check if training is complete

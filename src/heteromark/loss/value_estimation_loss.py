@@ -46,18 +46,3 @@ class LossValueEstimationModule(nn.Module):
         # Apply Critic Coefficient
         loss_value = loss_value * self.critic_coeff
         return loss_value
-
-
-def update_critic(optimizer, loss_module, tensordict_data, step, logger=None):
-    critic_optimizer = optimizer["critic"]
-    critic_loss_module = loss_module["critic"]
-    critic_optimizer.zero_grad()
-    # Compute loss
-    critic_loss = critic_loss_module(tensordict_data)
-    critic_loss.backward()
-    critic_optimizer.step()
-    if logger is not None:
-        logger.log_critic_metrics(
-            critic_loss=critic_loss.item(),
-            step=step,
-        )

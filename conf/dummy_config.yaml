@@ -11,5 +11,4 @@ defaults:
 # Top-level configuration
 device: cpu  # Global device (cpu, cuda)
 
-
-
+log_dir: ${hydra:runtime.output_dir}/logs
