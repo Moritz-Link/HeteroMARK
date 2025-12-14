@@ -139,7 +139,6 @@ def process_batch(tensordict_data: Any, agent_group: str, device: torch.device) 
 
 from heteromark.training.utils import (
     filter_tensordict_by_agent,
-    set_factor_to_all,
 )
 
 
@@ -189,18 +188,16 @@ def train(components: dict[str, Any], config: DictConfig) -> dict[str, Any]:
 
         # HAPPO-specific: Reset factor for new batch
         if happo_algorithm:
-            happo_algorithm.reset_factor(tensordict_data)
+            # happo_algorithm.reset_factor(tensordict_data)
             # TODO: set all factor values at the beginning
-            set_factor_to_all(
-                tensordict_data, happo_algorithm.get_factor(tensordict_data)
-            )
+
             # set_factor_of_all_agents(
             #     tensordict_data, env, happo_algorithm.get_factor(tensordict_data)
             # )
             agent_order = happo_algorithm.get_agent_order()
         else:
             agent_order = env.agents
-        print("Agent order:", agent_order)
+        # print("Agent order:", agent_order)
         # Training epochs
 
         for epoch_idx in range(num_epochs):
@@ -209,7 +206,9 @@ def train(components: dict[str, Any], config: DictConfig) -> dict[str, Any]:
                 advantage_module(tensordict_data)
             if happo_algorithm:
                 happo_algorithm.set_adv_as_factor(tensordict_data)
-
+                # set_factor_to_all(
+                #     tensordict_data, happo_algorithm.get_factor(tensordict_data)
+                # )
             #     # Add HAPPO factor if using HAPPO
             # if happo_algorithm:
             #     factor = happo_algorithm.get_factor_for_agent(agent)
@@ -275,6 +274,10 @@ def train(components: dict[str, Any], config: DictConfig) -> dict[str, Any]:
                 # For each Agent
                 if happo_algorithm:
                     happo_algorithm.update_factor(tensordict_data, agent_group)
+                    # TODO Update the factor in the tensordict
+                    tensordict_data["factor"] = happo_algorithm.get_factor(
+                        tensordict_data
+                    )
 
         frames += batch_frames
         pbar.update(batch_frames)

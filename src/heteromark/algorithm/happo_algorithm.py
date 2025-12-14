@@ -168,7 +168,8 @@ class HappoAlgorithm:
 
                 self.factor = copy.deepcopy(adv)
         adv = tensordict[self.advantage_key]
-        tensordict["factor"] = copy.deepcopy(adv)
+        self.factor = copy.deepcopy(adv)
+        tensordict["factor"] = self.factor
 
     def _get_cur_log_prob(self, tensordict: TensorDictBase, actor_network: any):
         """Get current log probabilities from the actor network.
@@ -347,8 +348,15 @@ class HappoAlgorithm:
         # Apply action aggregation (sum, mean, or prod over action dimension)
         imp_weights = torch.exp((new_log_prob - prev_log_prob).unsqueeze(-1))
         truncated_mask = tensordict[(agent_group, self.truncated_key)]
-        # mask with ones - truncated
-        # then product in shape
+
+        # Mask importance weights: where truncated is True, use 1.0 (no factor update)
+        # where truncated is False, use computed imp_weights
+        imp_weights = torch.where(
+            truncated_mask, torch.ones_like(imp_weights), imp_weights
+        )
+
+        # Multiply all importance weights along the agent dimension (dim=1)
+        imp_weights = torch.prod(imp_weights, dim=1, keepdim=False)
         # Reshape importance weights to match factor shape if needed
         if imp_weights.shape != self.factor.shape:
             raise Warning(
