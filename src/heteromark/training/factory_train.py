@@ -196,12 +196,12 @@ def train(components: dict[str, Any], config: DictConfig) -> dict[str, Any]:
         tensordict_data["reward"] = tensordict_data["reward"][:, 0]
         tensordict_data[("next", "reward")] = tensordict_data[("next", "reward")][:, 0]
 
-        tensordict_data[("critic", "observation")] = tensordict_data[
-            (random_agent_group, "observation", "observation")
-        ][:, 0]
-        tensordict_data[("next", "critic", "observation")] = tensordict_data[
-            ("next", random_agent_group, "observation", "observation")
-        ][:, 0]
+        # tensordict_data[("critic", "observation")] = tensordict_data[
+        #     (random_agent_group, "observation", "observation")
+        # ][:, 0]
+        # tensordict_data[("next", "critic", "observation")] = tensordict_data[
+        #     ("next", random_agent_group, "observation", "observation")
+        # ][:, 0]
 
         # HAPPO-specific: Reset factor for new batch
 
@@ -243,13 +243,10 @@ def train(components: dict[str, Any], config: DictConfig) -> dict[str, Any]:
                             device=device,
                             max_grad_norm=max_grad_norm,
                             step=frames,
-                            logger=None,  # TODO: Logger
+                            logger=None,
                         )
 
-                        # Update critic network
-                        update_critic(
-                            optimizers, loss_modules, batch, frames, None
-                        )  # TODO: Logger
+                        update_critic(optimizers, loss_modules, batch, frames, None)
 
                 # Update HAPPO factor after training this agent group
                 # For each Agent

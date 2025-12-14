@@ -11,6 +11,8 @@ from torchrl.modules import (
     ValueOperator,
 )
 
+from heteromark.networks import SmallMlpCritic
+
 
 class BasePolicyFactory(ABC):
     """Abstract base class for policy factories."""
@@ -76,7 +78,8 @@ class PolicyFactory(BasePolicyFactory):
         group_map = getattr(
             env, "group_map", {"default": env.agents if hasattr(env, "agents") else []}
         )
-
+        citic_in_keys = []
+        critic_obs_dim = 0  # TODO Stimmt nicht
         for agent_group in group_map.keys():
             # Extract observation and action specs for this agent group
             obs_spec = self._get_observation_spec(env, agent_group)
@@ -94,11 +97,12 @@ class PolicyFactory(BasePolicyFactory):
                 activation_class=activation_class,
                 device=device,
             )
+            policy_in_keys = (agent_group, "observation", "observation")
 
             # Wrap in TensorDictModule
             policy_module = TensorDictModule(
                 actor_net,
-                in_keys=[(agent_group, "observation", "observation")],
+                in_keys=[policy_in_keys],
                 out_keys=[(agent_group, "logits")],
             )
 
@@ -115,21 +119,25 @@ class PolicyFactory(BasePolicyFactory):
                 log_prob_key=(agent_group, "log_prob"),
             )
             policy_modules[agent_group] = policy_actor
+            citic_in_keys.append(policy_in_keys)
+            critic_obs_dim += obs_dim * len(group_map[agent_group])
 
         #### Value Network
         # TODO: Letzte agent information
         # Create critic network
-        critic_net = MLP(
-            in_features=obs_dim,
-            out_features=1,
-            num_cells=hidden_sizes,
-            activation_class=activation_class,
-            device=device,
-        )
 
+        # critic_net = MLP(
+        #     in_features=critic_obs_dim,
+        #     out_features=1,
+        #     num_cells=hidden_sizes,
+        #     activation_class=activation_class,
+        #     device=device,
+        # )
+
+        critic_net = SmallMlpCritic(input_dim=critic_obs_dim).to(device)
         value_module = ValueOperator(
             module=critic_net,
-            in_keys=[("critic", "observation")],
+            in_keys=citic_in_keys,
             out_keys=[("state_value")],
         )
 
@@ -199,6 +207,10 @@ def test(config: DictConfig):
 
     print("Policy Modules:", policy_modules)
     print("Value Modules:", value_modules)
+
+    td = env.reset()
+    value_modules(td)
+    print("Value Module Output Sample:", td.get("state_value"))
     print(" === Policy and Value modules created ===")
 
 
