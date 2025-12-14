@@ -1,4 +1,5 @@
 import contextlib
+import copy
 import warnings
 
 import torch
@@ -53,14 +54,15 @@ class HappoAlgorithm:
         """
         self.agent_groups = agent_groups
         self.agents = [agent for group in agent_groups.values() for agent in group]
-        self.agent_update_type = "agent-wise"
+        self.agent_update_type = "group-wise"
         self.policy_modules = policy_modules
         self.sample_log_prob_key = sample_log_prob_key
         self.action_aggregation = action_aggregation
         self.fixed_order = fixed_order
         self.device = device if device is not None else torch.device("cpu")
         self.functional = functional
-
+        self.advantage_key = advantage_key
+        self.truncated_key = "truncated"
         # Extract agent group names
         self.group_names = list(agent_groups.keys())
         self.num_groups = len(self.group_names)
@@ -88,7 +90,7 @@ class HappoAlgorithm:
             if self.agent_update_type == "agent-wise":
                 self.current_agent_order = list(torch.randperm(self.num_agents).numpy())
                 return [self.agents[i] for i in self.current_agent_order]
-            else:
+            if self.agent_update_type == "group-wise":
                 self.current_agent_order = list(torch.randperm(self.num_groups).numpy())
                 return [self.group_names[i] for i in self.current_agent_order]
         # Return actual agent group names in the determined order
@@ -119,8 +121,8 @@ class HappoAlgorithm:
             # General case: append 1 as feature dimension
             factor_shape = (*batch_shape, 1)
         # If factor_shape is 2D (e.g. (256, 1)), expand it to 3D (256, 1, 1)
-        if len(factor_shape) == 2:
-            factor_shape = (*factor_shape, 1)
+        # if len(factor_shape) == 2:
+        #     factor_shape = (*factor_shape, 1)
         self.factor = torch.ones(factor_shape, dtype=torch.float32, device=self.device)
         return self.factor
 
@@ -138,6 +140,35 @@ class HappoAlgorithm:
         if self.factor is None:
             self.reset_factor(tensordict)
         return self.factor
+
+    def set_adv_as_factor(self, tensordict: TensorDictBase):
+        """Set the factor to advantage if shapes and dimensions match.
+
+        Args:
+            tensordict (TensorDictBase): Input tensordict containing advantage.
+
+        Raises:
+            ValueError: If advantage shape/dimensions don't match expected factor shape.
+        """
+        adv = tensordict[self.advantage_key]
+
+        # Compare with current factor if it exists
+        if self.factor is not None:
+            if (
+                adv.shape != self.factor.shape
+                or adv.ndim != self.factor.ndim
+                or adv.dtype != self.factor.dtype
+                or adv.device != self.factor.device
+            ):
+                raise ValueError(
+                    f"Advantage properties don't match factor. "
+                    f"Advantage: shape={adv.shape}, ndim={adv.ndim}, dtype={adv.dtype}, device={adv.device}. "
+                    f"Factor: shape={self.factor.shape}, ndim={self.factor.ndim}, dtype={self.factor.dtype}, device={self.factor.device}."
+                )
+
+                self.factor = copy.deepcopy(adv)
+        adv = tensordict[self.advantage_key]
+        tensordict["factor"] = copy.deepcopy(adv)
 
     def _get_cur_log_prob(self, tensordict: TensorDictBase, actor_network: any):
         """Get current log probabilities from the actor network.
@@ -291,7 +322,8 @@ class HappoAlgorithm:
         actor_network = self.policy_modules[agent_group]
 
         # Get old log probabilities from tensordict
-        adv_shape = tensordict[(agent_group, "advantage")].shape
+        # adv_shape = tensordict[(agent_group, "advantage")].shape
+        adv_shape = tensordict[("advantage")].shape
 
         # Action from current agent
         # Now the shape is 256,1
@@ -314,7 +346,9 @@ class HappoAlgorithm:
         # Compute importance weights: exp(new_log_prob - old_log_prob)
         # Apply action aggregation (sum, mean, or prod over action dimension)
         imp_weights = torch.exp((new_log_prob - prev_log_prob).unsqueeze(-1))
-
+        truncated_mask = tensordict[(agent_group, self.truncated_key)]
+        # mask with ones - truncated
+        # then product in shape
         # Reshape importance weights to match factor shape if needed
         if imp_weights.shape != self.factor.shape:
             raise Warning(

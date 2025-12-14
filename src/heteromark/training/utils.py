@@ -168,6 +168,7 @@ def filter_tensordict_by_agent(
         "state_value",
         "value_target",
         "critic",
+        "factor",
     ]:
         if key in filtered_dict:
             filtered_dict[key] = filtered_dict[key][non_truncated_mask]
@@ -187,6 +188,10 @@ def set_factor_of_all_agents(tensordict: TensorDict, env, factor: torch.Tensor):
         tensordict[agent_group]["factor"] = factor.repeat(1, num_agents_in_group, 1)
 
 
+def set_factor_to_all(tensordict: TensorDict, factor: torch.Tensor):
+    tensordict["factor"] = factor
+
+
 def log_info(config):
     """Log configuration information and training start message.
 
@@ -202,48 +207,48 @@ def log_info(config):
 
     # General settings
     print("\nGeneral Settings:")
-    print(f"  Device: {config.get('device', 'cpu')}")
-    print(f"  Environment Type: {config.get('env_type', 'smac')}")
-    print(f"  Policy Type: {config.get('policy_type', 'mlp')}")
-    print(f"  Loss Type: {config.get('loss_type', 'ppo')}")
-    print(f"  Optimizer Type: {config.get('optimizer_type', 'adam')}")
-    print(f"  Collector Type: {config.get('collector_type', 'sync')}")
-    print(f"  Buffer Type: {config.get('buffer_type', 'tensor')}")
+    print(f"  Device: {config.components.collector.device}")
+    print(f"  Environment Type: {config.env.env_type}")
+    print(f"  Policy Type: {config.components.policy.policy_type}")
+    print(f"  Loss Type: {config.components.loss.loss_type}")
+    print(f"  Optimizer Type: {config.components.optimizer.optimizer_type}")
+    print(f"  Collector Type: {config.components.collector.collector_type}")
+    print(f"  Buffer Type: {config.components.replay_buffer.buffer_type}")
 
     # Environment settings
-    if hasattr(config, "environment"):
+    if hasattr(config, "env"):
         print("\nEnvironment Settings:")
-        for key, value in config.environment.items():
+        for key, value in config.env.items():
             print(f"  {key}: {value}")
 
     # Policy settings
-    if hasattr(config, "policy"):
+    if hasattr(config.components, "policy"):
         print("\nPolicy Settings:")
-        for key, value in config.policy.items():
+        for key, value in config.components.policy.items():
             print(f"  {key}: {value}")
 
     # Loss settings
-    if hasattr(config, "loss"):
+    if hasattr(config.components, "loss"):
         print("\nLoss Settings:")
-        for key, value in config.loss.items():
+        for key, value in config.components.loss.items():
             print(f"  {key}: {value}")
 
     # Optimizer settings
-    if hasattr(config, "optimizer"):
+    if hasattr(config.components, "optimizer"):
         print("\nOptimizer Settings:")
-        for key, value in config.optimizer.items():
+        for key, value in config.components.optimizer.items():
             print(f"  {key}: {value}")
 
     # Collector settings
-    if hasattr(config, "collector"):
+    if hasattr(config.components, "collector"):
         print("\nCollector Settings:")
-        for key, value in config.collector.items():
+        for key, value in config.components.collector.items():
             print(f"  {key}: {value}")
 
     # Replay buffer settings
-    if hasattr(config, "replay_buffer"):
+    if hasattr(config.components, "replay_buffer"):
         print("\nReplay Buffer Settings:")
-        for key, value in config.replay_buffer.items():
+        for key, value in config.components.replay_buffer.items():
             print(f"  {key}: {value}")
 
     # Training settings

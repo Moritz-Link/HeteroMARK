@@ -213,7 +213,7 @@ class ClipHAPPOLoss(PPOLoss):
                 "pointing to a nested key like ('agent', 'factor')."
             )
 
-        factor_key = self.tensor_keys.factor
+        factor_key = self.tensor_keys.factor  # TODO: Den Key noch anpassen
         factor_td = tensordict.get(factor_key, None)
 
         if factor_td is None:

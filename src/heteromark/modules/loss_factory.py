@@ -76,7 +76,7 @@ class LossFactory(BaseLossFactory):
         # Loss hyperparameters
         clip_epsilon = config.get("clip_epsilon", 0.2)
         entropy_coeff = config.get("entropy_coeff", 0.01)
-        # TODO Muss das für jeden Agenten einzeln gesetzt werden?
+
         for agent_group in policy_modules.keys():
             # Create HAPPO loss module
             loss_module = ClipHAPPOLoss(
@@ -98,6 +98,7 @@ class LossFactory(BaseLossFactory):
                 value_target=("value_target"),
                 value=("state_value"),
                 reward=("reward"),
+                factor=(agent_group, "factor"),
             )
 
             loss_modules[agent_group] = loss_module

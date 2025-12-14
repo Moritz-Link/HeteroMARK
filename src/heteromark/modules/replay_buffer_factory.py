@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 
 from torchrl.data import LazyMemmapStorage, LazyTensorStorage, ReplayBuffer
+from torchrl.data.replay_buffers.samplers import SamplerWithoutReplacement
 
 
 class BaseReplayBufferFactory(ABC):
@@ -64,6 +65,7 @@ class ReplayBufferFactory(BaseReplayBufferFactory):
             buffer = ReplayBuffer(
                 storage=storage,
                 batch_size=batch_size,
+                sampler=SamplerWithoutReplacement(shuffle=True),
             )
             buffers[agent_group] = buffer
 
