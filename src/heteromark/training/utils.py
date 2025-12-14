@@ -158,6 +158,7 @@ def filter_tensordict_by_agent(
         )
 
     # Filter other top-level tensors by the mask
+
     for key in [
         "done",
         "step_count",
@@ -167,7 +168,7 @@ def filter_tensordict_by_agent(
         "reward",
         "state_value",
         "value_target",
-        "critic",
+        # "critic",
         "factor",
     ]:
         if key in filtered_dict:

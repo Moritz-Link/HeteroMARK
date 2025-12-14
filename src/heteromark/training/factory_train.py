@@ -245,7 +245,7 @@ def train(components: dict[str, Any], config: DictConfig) -> dict[str, Any]:
                             step=frames,
                             logger=None,
                         )
-
+                        # TODO: Wo soll der Critic geupdated werden? -> Eher eins nach Außen ohne FIlter mit eigenem Replay Buffer"
                         update_critic(optimizers, loss_modules, batch, frames, None)
 
                 # Update HAPPO factor after training this agent group
