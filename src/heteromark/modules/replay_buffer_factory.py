@@ -57,8 +57,8 @@ class ReplayBufferFactory(BaseReplayBufferFactory):
             Dictionary of replay buffers by agent group
         """
         buffers = {}
-        batch_size = config.get("batch_size", 256)
-        buffer_size = config.get("buffer_size", 10000)
+        batch_size = config.batch_size
+        buffer_size = config.buffer_size
 
         for agent_group in env.group_map.keys():
             storage = LazyTensorStorage(max_size=buffer_size)
@@ -69,7 +69,20 @@ class ReplayBufferFactory(BaseReplayBufferFactory):
             )
             buffers[agent_group] = buffer
 
+        buffers["critic"] = self._get_critic_buffer(config)
+
         return buffers
+
+    def _get_critic_buffer(self, config) -> ReplayBuffer:
+        batch_size = config.batch_size
+        buffer_size = config.buffer_size
+        storage = LazyTensorStorage(max_size=buffer_size)
+        buffer = ReplayBuffer(
+            storage=storage,
+            batch_size=batch_size,
+            sampler=SamplerWithoutReplacement(shuffle=True),
+        )
+        return buffer
 
     def _create_memmap_buffers(self, config: dict, env) -> dict:
         """Create memory-mapped replay buffers for large datasets.
