@@ -218,6 +218,7 @@ def train(components: dict[str, Any], config: DictConfig) -> dict[str, Any]:
             # algorithm.set_adv_as_factor(tensordict_data)
 
             for agent_group in agent_order:
+                algorithm.prepare_training(tensordict_data, agent_group)
                 group_buffer = replay_buffers[agent_group]
                 group_loss_module = loss_modules[agent_group]
                 group_optimizer = optimizers[agent_group]

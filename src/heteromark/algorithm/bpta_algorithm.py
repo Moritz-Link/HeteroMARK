@@ -1,3 +1,5 @@
+import copy
+
 import torch
 from tensordict import TensorDictBase
 
@@ -57,6 +59,30 @@ class BptaAlgorithm(AlgorithmBase):
         self.factor = None
 
         # Return actual agent group names in the determined order
+
+    def get_agent_order(self) -> list[str]:
+        """Generate agent order for training.
+
+        Returns a random permutation of agent groups if fixed_order is False,
+        otherwise returns the groups in their original order.
+
+        Returns:
+            List[str]: List of agent group names in training order.
+        """
+        if self.fixed_order:
+            self.current_agent_order = list(range(self.num_groups))
+            return [self.group_names[i] for i in self.current_agent_order]
+        else:
+            if self.agent_update_type == "agent-wise":
+                self.current_agent_order = list(torch.randperm(self.num_agents).numpy())
+                self.agent_order = [self.agents[i] for i in self.current_agent_order]
+                return reversed(self.agent_order)
+            if self.agent_update_type == "group-wise":
+                self.current_agent_order = list(torch.randperm(self.num_groups).numpy())
+                self.agent_order = [
+                    self.group_names[i] for i in self.current_agent_order
+                ]
+                return reversed(self.agent_order)
 
     def reset_factor(self, tensordict: TensorDictBase) -> torch.Tensor:
         """Reset the factor tensor to ones based on tensordict shape.
@@ -120,7 +146,7 @@ class BptaAlgorithm(AlgorithmBase):
             self.reset_factor(tensordict)
         return self.factor
 
-    def get_factor_for_agent(self, agent_group: str = None) -> torch.Tensor:
+    def _get_factor_for_agent(self, agent_group: str = None) -> torch.Tensor:
         """Get the factor tensor for a specific agent group.
 
         This returns the current factor that should be used when training the specified agent.
@@ -147,7 +173,121 @@ class BptaAlgorithm(AlgorithmBase):
 
         """
 
+        self.factor = torch.ones((self.num_groups, tensordict.batch_size, 1))
+        self.action_gradients = torch.zeros(
+            (self.num_groups, self.num_groups, tensordict.batch_size)
+        )
+        ## set factor to ones for all agents num_agents, ep_length , n_rollout_threads
+        ## Set action  grad to zeros for each agent to each other : n,n,ep_length, n_rollout_threads, action_shape
+        ## ? exection mask batchall
+
+    def prepare_training(
+        self, tensordict: TensorDictBase, agent_group: str
+    ) -> TensorDictBase:
+        """Prepare tensordict for training.
+
+        This method can be overridden by subclasses to modify the tensordict
+        before training (e.g., normalizing advantages).
+
+        Args:
+            tensordict (TensorDictBase): Input tensordict for training.
+        """
+        ## update the factor
+        ## use other agents and compute action_grad_per_agent
+        ## update action_grad
+
+        prod_agent_factor, cated_other_agents_factors = self._get_factor_for_agent(
+            agent_group
+        )
+        action_shape = self._get_action_shape(tensordict, agent_group)
+        action_grad_per_agent = torch.zeros(
+            (
+                tensordict.batch_size,
+                1,
+                action_shape,  # assuming action shape is known in this scope
+            )
+        )
+
+        ## get all updated agents before this agent TODO: only beta
+        updated_agents_idx = []
+        action_grad_per_agent = self._get_action_grad_of_updated_agents(
+            action_grad_per_agent,
+            cated_other_agents_factors,
+            updated_agents_idx,
+            self.group_names.index(agent_group),
+            tensordict.batch_size,
+        )
+
+        action_grad_copy = copy.deepcopy(action_grad_per_agent)
+        ## For all of these updated agents, compute the action gradient
+        ## accumulate the action gradients
         pass
+
+    def _get_action_grad_of_updated_agents(
+        self,
+        action_grad_per_agent: torch.Tensor,
+        cated_other_agents_factors: torch.Tensor,
+        updated_agents_idx: list[int],
+        updated_agent: int,
+        bs: int = None,
+    ):
+        # TODO: self.clip_param
+        self.clip_param = 0.2
+        for agent_id in updated_agents_idx:
+            ## compute action grad for this agent
+            ## multiply with the cated_other_agents_factors
+
+            multiplier = torch.cat(
+                [
+                    cated_other_agents_factors[:agent_id],
+                    cated_other_agents_factors[agent_id + 1 :],
+                ],
+                dim=0,
+            )
+            multiplier = (
+                torch.ones((bs, 1, 1), dtype=torch.float32)
+                if multiplier is None
+                else torch.prod(multiplier, 0)
+            )
+            multiplier = torch.clip(
+                multiplier, 1 - self.clip_param / 2, 1 + self.clip_param / 2
+            )
+            assert (
+                multiplier.shape == self.action_gradients[updated_agent][agent_id].shape
+            )
+            action_grad_per_agent += (
+                self.action_gradients[updated_agent][agent_id] * multiplier
+            )
+
+        return action_grad_per_agent
+
+    def _get_factor_for_agent(self, agent_group: str = None) -> torch.Tensor:
+        """Get the factor tensor for a specific agent group.
+
+        This returns the current factor that should be used when training the specified agent.
+
+        Args:
+            agent_group (str): Name of the agent group.
+        """
+
+        group_index = self.group_names.index(agent_group)
+        copy_factor = copy.deepcopy(self.factor)
+        cated_other_agents_factors = torch.cat(
+            [copy_factor[:group_index], copy_factor[group_index + 1 :]], dim=0
+        )
+        prod_factors = torch.prod(cated_other_agents_factors, dim=0)
+        print(f' "Agent Group: {agent_group}, Factor Shape: {prod_factors.shape}" ')
+        return copy.deepcopy(prod_factors), copy.deepcopy(cated_other_agents_factors)
+
+    def _get_action_shape(self, tensordict: TensorDictBase, agent_group: str) -> tuple:
+        """Get the action shape for a specific agent group.
+
+        Args:
+            agent_group (str): Name of the agent group.
+        """
+        group_dict = tensordict.get(agent_group)
+        action = group_dict.get("action")
+        return action.shape
 
     def post_update(
         self, tensordict: TensorDictBase, agent_group: str

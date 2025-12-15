@@ -267,6 +267,20 @@ class HappoAlgorithm(AlgorithmBase):
 
         self.set_adv_as_factor(tensordict)
 
+    def prepare_training(
+        self, tensordict: TensorDictBase, agent_group: str
+    ) -> TensorDictBase:
+        """Prepare tensordict for training.
+
+        This method can be overridden by subclasses to modify the tensordict
+        before training (e.g., normalizing advantages).
+
+        Args:
+            tensordict (TensorDictBase): Input tensordict for training.
+        """
+
+        pass
+
     def post_update(
         self, tensordict: TensorDictBase, agent_group: str
     ) -> TensorDictBase:
