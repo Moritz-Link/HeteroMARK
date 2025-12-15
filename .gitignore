@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.td/
+*.pkl
 outputs/
 # pytest cache
 .pytest_cache/

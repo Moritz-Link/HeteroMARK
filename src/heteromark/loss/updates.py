@@ -1,19 +1,33 @@
 import torch
 
 
-def update_critic(optimizer, loss_module, tensordict_data, step, logger=None):
+def update_critic(
+    replay_buffers,
+    optimizer,
+    loss_module,
+    tensordict_data,
+    step,
+    device,
+    logger=None,
+):
+    critic_buffer = replay_buffers["critic"]
     critic_optimizer = optimizer["critic"]
     critic_loss_module = loss_module["critic"]
-    critic_optimizer.zero_grad()
-    # Compute loss
-    critic_loss = critic_loss_module(tensordict_data)
-    critic_loss.backward()
-    critic_optimizer.step()
-    if logger is not None:
-        logger.log_critic_metrics(
-            critic_loss=critic_loss.item(),
-            step=step,
-        )
+
+    critic_buffer.empty()
+    critic_buffer.extend(tensordict_data.to(device))
+    for batch in critic_buffer:
+        batch = batch.to(device)
+        critic_optimizer.zero_grad()
+        # Compute loss
+        critic_loss = critic_loss_module(batch)
+        critic_loss.backward()
+        critic_optimizer.step()
+        if logger is not None:
+            logger.log_critic_metrics(
+                critic_loss=critic_loss.item(),
+                step=step,
+            )
 
 
 def update_actor(

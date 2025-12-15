@@ -245,12 +245,20 @@ def train(components: dict[str, Any], config: DictConfig) -> dict[str, Any]:
                             step=frames,
                             logger=None,
                         )
-                        # TODO: Wo soll der Critic geupdated werden? -> Eher eins nach Außen ohne FIlter mit eigenem Replay Buffer"
-                        update_critic(optimizers, loss_modules, batch, frames, None)
 
                 # Update HAPPO factor after training this agent group
                 # For each Agent
                 algorithm.post_update(tensordict_data, agent_group)
+
+            update_critic(
+                replay_buffers,
+                optimizers,
+                loss_modules,
+                tensordict_data,
+                frames,
+                device,
+                None,
+            )
 
         logger["training"].log_steps(step=frames, data=tensordict_data)
         frames += batch_frames
