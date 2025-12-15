@@ -219,8 +219,15 @@ class BptaAlgorithm(AlgorithmBase):
         )
 
         action_grad_copy = copy.deepcopy(action_grad_per_agent)
-        ## For all of these updated agents, compute the action gradient
-        ## accumulate the action gradients
+
+        old_actions = tensordict.get(agent_group).get("action")
+        old_actions.requires_grad = True
+        old_action_wo = old_actions.detach()
+
+        # get
+        # old_actions_logprob
+
+        # Then generate updated tensorDict and return for training each agent of group
         pass
 
     def _get_action_grad_of_updated_agents(
