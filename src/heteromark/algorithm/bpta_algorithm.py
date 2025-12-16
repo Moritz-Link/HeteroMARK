@@ -1,7 +1,7 @@
-import copy
-
+import numpy as np
 import torch
 from tensordict import TensorDictBase
+from torchrl.objectives.utils import _maybe_get_or_select
 
 from heteromark.algorithm.algorithm_base import AlgorithmBase
 
@@ -199,13 +199,15 @@ class BptaAlgorithm(AlgorithmBase):
         prod_agent_factor, cated_other_agents_factors = self._get_factor_for_agent(
             agent_group
         )
+        tensordict.set("group_factor", prod_agent_factor)
         action_shape = self._get_action_shape(tensordict, agent_group)
-        action_grad_per_agent = torch.zeros(
+        action_grad_per_agent = np.zeros(
             (
                 tensordict.batch_size,
                 1,
                 action_shape,  # assuming action shape is known in this scope
-            )
+            ),
+            dtype=np.float32,
         )
 
         ## get all updated agents before this agent TODO: only beta
@@ -218,17 +220,25 @@ class BptaAlgorithm(AlgorithmBase):
             tensordict.batch_size,
         )
 
-        action_grad_copy = copy.deepcopy(action_grad_per_agent)
+        self.action_grad_copy = action_grad_per_agent.copy()  # Basiert auf dem Factor
+        tensordict.set("action_grad_per_agent", action_grad_per_agent)
 
         old_actions = tensordict.get(agent_group).get("action")
         old_actions.requires_grad = True
         old_action_wo = old_actions.detach()
-
+        # TODO: HIer passt was noch nicht
+        # one_hot_actions = episode_length, n_rollout_threads, args.num_agents, action_dim
+        # action_log_probs = episode_length, n_rollout_threads, self.act_shape
         # get
         # old_actions_logprob
+        adv_shape = tensordict[("advantage")].shape
+        self.old_log_prob = _maybe_get_or_select(
+            tensordict,
+            (agent_group, self.sample_log_prob_key),
+            adv_shape,
+        )
 
         # Then generate updated tensorDict and return for training each agent of group
-        pass
 
     def _get_action_grad_of_updated_agents(
         self,
@@ -244,19 +254,19 @@ class BptaAlgorithm(AlgorithmBase):
             ## compute action grad for this agent
             ## multiply with the cated_other_agents_factors
 
-            multiplier = torch.cat(
+            multiplier = np.concatenate(
                 [
                     cated_other_agents_factors[:agent_id],
                     cated_other_agents_factors[agent_id + 1 :],
                 ],
-                dim=0,
+                0,
             )
             multiplier = (
-                torch.ones((bs, 1, 1), dtype=torch.float32)
+                np.ones((bs, 1, 1), dtype=np.float32)
                 if multiplier is None
-                else torch.prod(multiplier, 0)
+                else np.prod(multiplier, 0)
             )
-            multiplier = torch.clip(
+            multiplier = np.clip(
                 multiplier, 1 - self.clip_param / 2, 1 + self.clip_param / 2
             )
             assert (
@@ -278,13 +288,12 @@ class BptaAlgorithm(AlgorithmBase):
         """
 
         group_index = self.group_names.index(agent_group)
-        copy_factor = copy.deepcopy(self.factor)
-        cated_other_agents_factors = torch.cat(
-            [copy_factor[:group_index], copy_factor[group_index + 1 :]], dim=0
+        cated_other_agents_factors = np.concatenate(
+            [self.factor[:group_index], self.factor[group_index + 1 :]], 0
         )
-        prod_factors = torch.prod(cated_other_agents_factors, dim=0)
+        prod_factors = np.prod(cated_other_agents_factors, 0)
         print(f' "Agent Group: {agent_group}, Factor Shape: {prod_factors.shape}" ')
-        return copy.deepcopy(prod_factors), copy.deepcopy(cated_other_agents_factors)
+        return prod_factors, cated_other_agents_factors
 
     def _get_action_shape(self, tensordict: TensorDictBase, agent_group: str) -> tuple:
         """Get the action shape for a specific agent group.
@@ -310,7 +319,35 @@ class BptaAlgorithm(AlgorithmBase):
             agent_group (str): Name of the agent group that was just updated.
         """
 
-        pass
+        # get new_actions_log_probs
+
+        new_log_prob, _, _ = self._get_cur_log_prob(
+            tensordict, self.policy_modules[agent_group]
+        )
+
+        # adv batch
+        advantage = tensordict[self.advantage_key]
+
+        # Action loss
+        action_loss = torch.sum(
+            torch.prod(
+                torch.exp(new_log_prob - self.old_log_prob.detach()),
+                -1,
+                keepdim=True,
+            )
+            * advantage,
+            dim=-1,
+            keepdim=True,
+        )
+
+        # update action_grad
+
+        # update factor with this loss -> Factor contains gradients!
+        # TODO To numpy
+        self.factor[self.group_names.index(agent_group)] = (
+            self.factor[self.group_names.index(agent_group)]
+            * torch.exp(new_log_prob - self.old_log_prob.detach())
+        ).detach()
 
     def pre_update(
         self, tensordict: TensorDictBase, agent_group: str
