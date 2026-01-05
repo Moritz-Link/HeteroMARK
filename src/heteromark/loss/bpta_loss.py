@@ -202,6 +202,8 @@ class ClipBptaLoss(PPOLoss):
         self._out_keys = values
 
     def forward(self, tensordict: TensorDictBase) -> TensorDictBase:
+        # https://github.com/LiZhYun/BackPropagationThroughAgents/blob/main/bta/runner/temporal/base_runner.py
+        # Log Prob also with rsample
         tensordict = tensordict.clone(False)
         advantage = tensordict.get(
             self.tensor_keys.advantage, None, as_padded_tensor=True

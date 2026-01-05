@@ -228,17 +228,73 @@ class BptaAlgorithm(AlgorithmBase):
         old_action_wo = old_actions.detach()
         # TODO: HIer passt was noch nicht
         # one_hot_actions = episode_length, n_rollout_threads, args.num_agents, action_dim
+        # Only for masking in R_ACTOR line 187. -> (Filtering bei mir)
         # action_log_probs = episode_length, n_rollout_threads, self.act_shape
         # get
+        # https://github.com/LiZhYun/BackPropagationThroughAgents/blob/main/bta/algorithms/bta/algorithm/r_actor_critic.py#L19
+        # https://github.com/LiZhYun/BackPropagationThroughAgents/blob/main/bta/algorithms/utils/act.py#L10
         # old_actions_logprob
         adv_shape = tensordict[("advantage")].shape
-        self.old_log_prob = _maybe_get_or_select(
-            tensordict,
-            (agent_group, self.sample_log_prob_key),
-            adv_shape,
+        # Hier muss rsample rein
+        # https://github.com/LiZhYun/BackPropagationThroughAgents/blob/main/bta/algorithms/utils/act.py#L10
+        self.old_log_prob = (
+            _maybe_get_or_select(  # replace by _rsample_action_log_probs
+                tensordict,
+                (agent_group, self.sample_log_prob_key),
+                adv_shape,
+            )
         )
 
         # Then generate updated tensorDict and return for training each agent of group
+
+    def _rsample_action_log_probs(self) -> tuple:
+        """
+        Sample actions and compute log probabilities.
+        Apply Reparameterization trick for  actions.
+
+        Returns:
+            train_actions: Sampled actions after reparameterization.
+            action_log_probs: Log probabilities of the sampled actions.
+
+        """
+        if self.continuous_action:
+            train_actions_soft = action_logits.mean
+            train_actions = action - train_actions_soft.detach() + train_actions_soft
+            # train_actions = train_actions_soft
+        elif self.discrete_action:
+            train_actions_soft = action_logits.rsample(hard=False, tau=tau)
+            train_actions_soft_ = train_actions_soft.gather(1, action.long())
+            index = action
+            train_actions_hard = torch.zeros_like(
+                train_actions_soft, memory_format=torch.legacy_contiguous_format
+            ).scatter_(-1, index.long(), 1.0)
+            train_actions_soft = torch.zeros_like(
+                train_actions_soft, memory_format=torch.legacy_contiguous_format
+            ).scatter_(-1, index.long(), train_actions_soft_)
+            train_actions = (
+                train_actions_hard - train_actions_soft.detach() + train_actions_soft
+            )
+            # train_actions = train_actions_soft
+        if kl:
+            action_log_probs_kl = action_logits.log_probs(joint_actions)
+        else:
+            action_log_probs_kl = None
+        if self.continuous_action:
+            return (
+                train_actions,
+                action_log_probs,
+                action_log_probs_kl,
+                dist_entropy,
+                action_logits,
+            )
+        elif self.discrete_action:
+            return (
+                train_actions,
+                action_log_probs,
+                action_log_probs_kl,
+                dist_entropy,
+                action_logits.logits,
+            )
 
     def _get_action_grad_of_updated_agents(
         self,
@@ -320,8 +376,8 @@ class BptaAlgorithm(AlgorithmBase):
         """
 
         # get new_actions_log_probs
-
-        new_log_prob, _, _ = self._get_cur_log_prob(
+        # https://github.com/LiZhYun/BackPropagationThroughAgents/blob/main/bta/runner/temporal/base_runner.py
+        new_log_prob, _, _ = self._get_cur_log_prob(  # _rsample_action_log_probs
             tensordict, self.policy_modules[agent_group]
         )
 
