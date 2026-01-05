@@ -11,6 +11,7 @@ from torchrl.modules import (
     ValueOperator,
 )
 
+from heteromark.distributions.categorical_rsample import MaskedRsampleCategorical
 from heteromark.networks import SmallMlpCritic
 
 
@@ -56,6 +57,28 @@ class PolicyFactory(BasePolicyFactory):
             return self._create_mlp_policy(config, env)
         else:
             raise ValueError(f"Unknown policy type: {self.policy_type}")
+
+    def _get_distribution_class(self, config: dict):
+        """Get distribution class based on configuration.
+
+        Args:
+            config: Configuration dictionary
+
+        Returns:
+            Distribution class
+        """
+        categorical_type = config.get("categorical_type", None)
+        if categorical_type is None:
+            categorical_type = "ppo"
+            raise Warning(
+                "categorical_type must be specified in config, set now to 'ppo' as default"
+            )
+        if categorical_type == "rsample":
+            return MaskedRsampleCategorical
+        elif categorical_type == "ppo":
+            return MaskedCategorical
+        else:
+            raise ValueError(f"Unknown categorical_type: {categorical_type}")
 
     def _create_mlp_policy(self, config: dict, env: Any) -> tuple[dict, dict]:
         """Create MLP-based policy and value networks.
@@ -114,7 +137,7 @@ class PolicyFactory(BasePolicyFactory):
                     "mask": (agent_group, "action_mask"),
                 },
                 out_keys=[(agent_group, "action")],
-                distribution_class=MaskedCategorical,
+                distribution_class=self._get_distribution_class(config),
                 return_log_prob=True,
                 log_prob_key=(agent_group, "log_prob"),
             )

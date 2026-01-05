@@ -247,7 +247,7 @@ class ClipBptaLoss(PPOLoss):
                     "If you are working in multi-agent/multi-objective settings this is highly suggested."
                 )
             advantage = _standardize(advantage, self.normalize_advantage_exclude_dims)
-
+        # https://github.com/LiZhYun/BackPropagationThroughAgents/blob/main/bta/algorithms/bta/t_policy.py#L176
         log_weight, dist, kl_approx = self._log_weight(
             tensordict,
             adv_shape=advantage.shape[

@@ -8,6 +8,10 @@ defaults:
   - algorithm: dummy
   - _self_
 
+components:
+  policy:
+    categorical_type: algorithm.loss.loss_type
+
 # Top-level configuration
 device: cpu  # Global device (cpu, cuda)
 
