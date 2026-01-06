@@ -1,3 +1,4 @@
+import contextlib
 import warnings
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -5,6 +6,7 @@ from dataclasses import dataclass
 import torch
 from tensordict import TensorDict, TensorDictBase, is_tensor_collection
 from tensordict.nn import (
+    CompositeDistribution,
     ProbabilisticTensorDictModule,
     ProbabilisticTensorDictSequential,
     TensorDictModule,
@@ -329,3 +331,74 @@ class ClipBptaLoss(PPOLoss):
             "target_critic_network_params",
         )
         return td_out
+
+    def _get_cur_log_prob(self, tensordict):
+        if isinstance(
+            self.actor_network,
+            (ProbabilisticTensorDictSequential, ProbabilisticTensorDictModule),
+        ) or hasattr(self.actor_network, "get_dist"):
+            # assert tensordict['log_probs'].requires_grad
+            # assert tensordict['logits'].requires_grad
+            with (
+                self.actor_network_params.to_module(self.actor_network)
+                if self.functional
+                else contextlib.nullcontext()
+            ):
+                dist = self.actor_network.get_dist(tensordict)
+            is_composite = isinstance(dist, CompositeDistribution)
+            in_dict_action = tensordict.get(self.tensor_keys.action)
+            action = self._rsample_action_log_probs(in_dict_action)
+
+            if action.requires_grad:
+                raise Warning(
+                    f"tensordict stored {self.tensor_keys.action} requires grad."
+                )
+            log_prob = dist.log_prob(action)
+        else:
+            raise NotImplementedError(
+                "Only probabilistic modules from tensordict.nn are currently supported. "
+                "If you need to implement a custom logic to retrieve the log-probs (to compute "
+                "the PPO objective) or the distribution (for the PPO entropy), please augment "
+                f"the {type(self).__class__} by implementing your own logic in _get_cur_log_prob."
+            )
+
+        return log_prob, dist, is_composite
+
+    def _rsample_action_log_probs(self, action) -> tuple:
+        """
+        Sample actions and compute log probabilities.
+        Apply Reparameterization trick for  actions.
+
+        Inputs:
+            action: Actions taken by the agent. -> Batch
+
+        Returns:
+            train_actions: Sampled actions after reparameterization.
+            action_log_probs: Log probabilities of the sampled actions.
+
+        """
+        # action_logits: Distribution with the logits! -> dist
+
+        dist = self._get_dist_of_actor()
+
+        if self.continuous_action:
+            train_actions_soft = dist.mean
+            train_actions = action - train_actions_soft.detach() + train_actions_soft
+
+        elif self.discrete_action:
+            train_actions_soft = dist.rsample(
+                hard=False, tau=self.tau
+            )  # TODO: Define tau
+            train_actions_soft_ = train_actions_soft.gather(1, action.long())
+            index = action
+            train_actions_hard = torch.zeros_like(
+                train_actions_soft, memory_format=torch.legacy_contiguous_format
+            ).scatter_(-1, index.long(), 1.0)
+            train_actions_soft = torch.zeros_like(
+                train_actions_soft, memory_format=torch.legacy_contiguous_format
+            ).scatter_(-1, index.long(), train_actions_soft_)
+            train_actions = (
+                train_actions_hard - train_actions_soft.detach() + train_actions_soft
+            )
+
+        return train_actions

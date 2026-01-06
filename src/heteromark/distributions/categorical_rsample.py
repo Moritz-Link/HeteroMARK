@@ -47,10 +47,12 @@ def test_rsample_categorical():
     sample = dist.rsample(hard=True, tau=0.5)
     print("Sample:", sample, sample.shape)
 
-    log_prob = dist.log_prob(logits[0, 0])
-    print("Log Prob:", logits[0, 0], log_prob)
+    actions = sample.argmax(dim=-1)  # shape [2]
+    print("Actions:", actions, actions.shape)
+    log_prob = dist.log_prob(actions)
+    print("Log Prob:", actions, log_prob)
 
-    print("\n", " === Gradient Check === ")
+    print("\n", " = Gradient Check =")
     logits.requires_grad_(True)
 
     dist = RsampleCategorical(logits=logits)
@@ -58,8 +60,32 @@ def test_rsample_categorical():
     loss = sample.sum()
     loss.backward()
     print("Logits Grad:", logits.grad)
+
+
+def test_masked_rsample_categorical():
     print("\n", " === Masked Rsample Categorical Test === ")
+    logits = torch.tensor([[0.1, 0.2, 0.7], [0.3, 0.4, 0.3]])
+    mask = torch.tensor([[1, 1, 0], [1, 1, 1]], dtype=torch.bool)
+    dist = MaskedRsampleCategorical(logits=logits, mask=mask)
+    print("Logits:", dist.logits, dist.logits.shape)
+    sample = dist.rsample(hard=True, tau=0.5)
+    print("Sample:", sample, sample.shape)
+
+    actions = sample.argmax(dim=-1)  # shape [2]
+    print("Actions:", actions, actions.shape)
+    log_prob = dist.log_prob(actions)
+    print("Log Prob:", actions, log_prob)
+
+    print("\n", " = Gradient Check =")
+    logits.requires_grad_(True)
+
+    dist = MaskedRsampleCategorical(logits=logits, mask=mask)
+    sample = dist.rsample(hard=True, tau=0.5)
+    loss = sample.sum()
+    loss.backward()
+    print("Logits Grad:", logits.grad)
 
 
 if __name__ == "__main__":
-    test_rsample_categorical()
+    # test_rsample_categorical()
+    test_masked_rsample_categorical()

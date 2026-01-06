@@ -140,6 +140,32 @@ class AlgorithmBase(ABC):
 
         pass
 
+    def _get_dist_of_actor(self, tensordict: TensorDictBase, actor_network: any):
+        """Get the distribution of the actor network.
+
+        This method can be overridden by subclasses to customize how the
+        distribution is obtained from the actor network.
+
+        Raises:
+            NotImplementedError: If not implemented in subclass.
+        """
+        if isinstance(
+            actor_network,
+            (ProbabilisticTensorDictSequential, ProbabilisticTensorDictModule),
+        ) or hasattr(actor_network, "get_dist"):
+            context = contextlib.nullcontext()
+
+            with context:
+                dist = actor_network.get_dist(tensordict)
+
+            return dist
+        else:
+            raise NotImplementedError(
+                "Only probabilistic modules from tensordict.nn are currently supported. "
+                "If you need to implement a custom logic to retrieve the log-probs, "
+                "please augment the algorithm class."
+            )
+
     def _get_cur_log_prob(self, tensordict: TensorDictBase, actor_network: any):
         """Get current log probabilities from the actor network.
 
