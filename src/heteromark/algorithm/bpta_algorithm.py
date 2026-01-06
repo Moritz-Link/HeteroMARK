@@ -4,6 +4,8 @@ from tensordict import TensorDictBase
 from torchrl.objectives.utils import _maybe_get_or_select
 
 from heteromark.algorithm.algorithm_base import AlgorithmBase
+from heteromark.algorithm.utils import generate_mask_from_order
+from heteromark.loss.bpta_loss import BptaActionLoss
 
 
 class BptaAlgorithm(AlgorithmBase):
@@ -57,6 +59,7 @@ class BptaAlgorithm(AlgorithmBase):
 
         # Initialize factor as None (will be set based on tensordict shape)
         self.factor = None
+        self.action_loss = BptaActionLoss()
 
         # Return actual agent group names in the determined order
 
@@ -74,15 +77,18 @@ class BptaAlgorithm(AlgorithmBase):
             return [self.group_names[i] for i in self.current_agent_order]
         else:
             if self.agent_update_type == "agent-wise":
-                self.current_agent_order = list(torch.randperm(self.num_agents).numpy())
-                self.agent_order = [self.agents[i] for i in self.current_agent_order]
-                return reversed(self.agent_order)
-            if self.agent_update_type == "group-wise":
-                self.current_agent_order = list(torch.randperm(self.num_groups).numpy())
-                self.agent_order = [
-                    self.group_names[i] for i in self.current_agent_order
-                ]
-                return reversed(self.agent_order)
+                self.current_agent_order = torch.randperm(self.num_agents).tolist()
+                self.agent_order = list(
+                    reversed([self.agents[i] for i in self.current_agent_order])
+                )
+                return self.agent_order
+
+            elif self.agent_update_type == "group-wise":
+                self.current_agent_order = torch.randperm(self.num_groups).tolist()
+                self.agent_order = list(
+                    reversed([self.group_names[i] for i in self.current_agent_order])
+                )
+                return self.agent_order
 
     def reset_factor(self, tensordict: TensorDictBase) -> torch.Tensor:
         """Reset the factor tensor to ones based on tensordict shape.
@@ -177,6 +183,9 @@ class BptaAlgorithm(AlgorithmBase):
         self.action_gradients = torch.zeros(
             (self.num_groups, self.num_groups, tensordict.batch_size)
         )
+        self.execution_mask = generate_mask_from_order(
+            self.agent_order, ego_exclusive=False
+        )
         ## set factor to ones for all agents num_agents, ep_length , n_rollout_threads
         ## Set action  grad to zeros for each agent to each other : n,n,ep_length, n_rollout_threads, action_shape
         ## ? exection mask batchall
@@ -223,25 +232,43 @@ class BptaAlgorithm(AlgorithmBase):
         self.action_grad_copy = action_grad_per_agent.copy()  # Basiert auf dem Factor
         tensordict.set("action_grad_per_agent", action_grad_per_agent)
 
-        old_actions = tensordict.get(agent_group).get("action")
-        old_actions.requires_grad = True
-        old_action_wo = old_actions.detach()
-        # TODO: HIer passt was noch nicht
-        # one_hot_actions = episode_length, n_rollout_threads, args.num_agents, action_dim
-        # Only for masking in R_ACTOR line 187. -> (Filtering bei mir)
-        # action_log_probs = episode_length, n_rollout_threads, self.act_shape
-        # get
+        # old_actions = tensordict.get(agent_group).get("action")  #
+        # old_actions.requires_grad = True
+        # old_action_wo = old_actions.detach()
+
+        execution_masks_agent = self.execution_mask[
+            :, :, self.group_names.index(agent_group)
+        ]
+
+        # must be toech with grad all actions?
+        # Need ALL the actions?
+        self.one_hot_actions = self._get_one_hot_actions(tensordict, agent_group)
+        self.old_one_hot_actions = self.one_hot_actions.copy().detach()
+        self.one_hot_actions.requires_grad = (
+            True  # TODO: add this to the evalute functions?
+        )
+        # TODO prüfen -> weglassen ? Das ist damit die Agenten über die vorherugen Aktionen bescheid wissen.
+        # Aber ohnne kan ich keine Gradienten miteinbeziehen?
+        masked_actions = (
+            self.one_hot_actions * execution_masks_agent.unsqueeze(-1)
+        ).view(*self.one_hot_actions.shape[:-2], -1)
+
         # https://github.com/LiZhYun/BackPropagationThroughAgents/blob/main/bta/algorithms/bta/algorithm/r_actor_critic.py#L19
         # https://github.com/LiZhYun/BackPropagationThroughAgents/blob/main/bta/algorithms/utils/act.py#L10
-        # old_actions_logprob
-        adv_shape = tensordict[("advantage")].shape
+
         # Hier muss rsample rein
         # https://github.com/LiZhYun/BackPropagationThroughAgents/blob/main/bta/algorithms/utils/act.py#L10
+
+        # Hier old_one_hot_actions ohne gradienten !
+        # in masked_actions
+        # actor_features = actor_features + self.action_base(torch.cat([masked_actions, id_feat], dim=1))
+        # part of gradient graph
         self.old_log_prob = (
+            # Here use old_one_hot_actions
             _maybe_get_or_select(  # replace by _rsample_action_log_probs
                 tensordict,
                 (agent_group, self.sample_log_prob_key),
-                adv_shape,
+                tensordict[("advantage")].shape,
             )
         )
 
@@ -327,34 +354,48 @@ class BptaAlgorithm(AlgorithmBase):
         """
 
         # get new_actions_log_probs
-        # https://github.com/LiZhYun/BackPropagationThroughAgents/blob/main/bta/runner/temporal/base_runner.py
-        new_log_prob, _, _ = self._get_cur_log_prob(  # _rsample_action_log_probs
+        # https://github.com/LiZhYun/BackPropagationThroughAgents/blob/main/bta/runner/temporal/base_runner.py 349
+        new_log_prob, _, _ = self._get_cur_log_prob(  # TODO: _rsample_action_log_probs
             tensordict, self.policy_modules[agent_group]
         )
 
         # adv batch
         advantage = tensordict[self.advantage_key]
 
-        # Action loss
-        action_loss = torch.sum(
-            torch.prod(
-                torch.exp(new_log_prob - self.old_log_prob.detach()),
-                -1,
-                keepdim=True,
-            )
-            * advantage,
-            dim=-1,
-            keepdim=True,
+        # BptaActionLoss
+        action_loss = self.action_loss(new_log_prob, self.old_log_prob, advantage)
+
+        # update action_grad :TODO -> Numpy? - ohne grad
+        # one_hot_actions with grad?
+        self._update_action_gradients()
+        self.action_gradients[self.group_names.index(agent_group)] = (
+            self.action_gradients[self.group_names.index(agent_group)]
         )
 
-        # update action_grad
+        # For other_agent each agent in agents (agent_groups)
+        # update action_grad[current_agent][other_agent] with gradients from action_loss
 
         # update factor with this loss -> Factor contains gradients!
-        # TODO To numpy
+        # TODO To numpy? Aber dann verschwinden die Gradienten!? -> Oder im Optimizer?
         self.factor[self.group_names.index(agent_group)] = (
             self.factor[self.group_names.index(agent_group)]
             * torch.exp(new_log_prob - self.old_log_prob.detach())
         ).detach()
+
+    def _update_action_gradients(self) -> None:
+        """
+        Updates the action gradients based on the actions and gradients of the updated agent for subsequent agents.
+
+        Args:
+            one_hot_actions (torch.Tensor): One-hot encoded actions for the current agent group.
+
+        """
+
+        for agent_id, agent in enumerate(self.agent_order):
+            self.one_hot_actions.grad[:, agent_id]
+            # reshape
+
+        return None
 
     def pre_update(
         self, tensordict: TensorDictBase, agent_group: str

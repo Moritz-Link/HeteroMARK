@@ -302,3 +302,18 @@ class AlgorithmBase(ABC):
             if self.agent_update_type == "group-wise":
                 self.current_agent_order = list(torch.randperm(self.num_groups).numpy())
                 return [self.group_names[i] for i in self.current_agent_order]
+
+    def _get_one_hot_actions(self, tensordict: TensorDictBase, agent_group: str):
+        """Get one-hot encoded actions for a specific agent group.
+
+        Args:
+            tensordict (TensorDictBase): Input tensordict containing actions.
+            agent_group (str): Name of the agent group."""
+        actions = tensordict.get(agent_group).get("action")
+        num_classes = tensordict.get(agent_group).get("logits").shape[-1]
+        # Create one-hot encoding
+        one_hot_actions = torch.nn.functional.one_hot(actions, num_classes=num_classes)
+
+        # Ensure float type for differentiable ops
+        one_hot_actions = one_hot_actions.float()
+        return one_hot_actions

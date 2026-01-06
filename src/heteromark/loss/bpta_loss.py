@@ -266,7 +266,8 @@ class ClipBptaLoss(PPOLoss):
             lw = log_weight.squeeze()
             ess = (2 * lw.logsumexp(0) - (2 * lw).logsumexp(0)).exp()
             batch = log_weight.shape[0]
-
+        # Set this always new for each agent but update the grad in algorithm
+        # In algorithm
         action_grad = tensordict["action_grad_per_agent"]  # Gradient of action log prob
         train_actions = None  # Actions of this agent
 
@@ -402,3 +403,45 @@ class ClipBptaLoss(PPOLoss):
             )
 
         return train_actions
+
+
+class BptaActionLoss(torch.nn.Module):
+    """BPTA action loss module.
+
+    This module computes the action loss for BPTA (Backpropagation Through Agents) algorithms.
+    It calculates the log probabilities of actions taken by agents using the reparameterization trick.
+
+    Args:
+        continuous_action (bool): Indicates if the action space is continuous.
+        discrete_action (bool): Indicates if the action space is discrete.
+        tau (float, optional): Temperature parameter for Gumbel-Softmax sampling in discrete action spaces.
+            Defaults to 1.0.
+    """
+
+    def __init__(
+        self,
+    ):
+        super().__init__()
+
+    def forward(self, new_log_prob, old_log_prob, advantage) -> torch.Tensor:
+        """Compute the action loss.
+
+        Args:
+            new_log_prob (torch.Tensor): Log probabilities of the current actions.
+            old_log_prob (torch.Tensor): Log probabilities of the previous actions.
+            advantage (torch.Tensor): Advantage values for the actions.
+        Returns:
+            torch.Tensor: The computed action loss.
+        """
+        # Action loss
+        action_loss = torch.sum(
+            torch.prod(
+                torch.exp(new_log_prob - old_log_prob.detach()),
+                -1,
+                keepdim=True,
+            )
+            * advantage,
+            dim=-1,
+            keepdim=True,
+        )
+        return action_loss
